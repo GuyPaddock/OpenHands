@@ -768,20 +768,36 @@ class BashSession:
                 last_change_time = time.time()
                 logger.debug(f'CONTENT UPDATED DETECTED at {last_change_time}')
 
-            # 1) Execution completed:
-            # Condition 1: A new prompt has appeared since the command started.
-            # Condition 2: The prompt count hasn't increased (potentially because the initial one scrolled off),
-            # BUT the *current* visible pane ends with a prompt, indicating completion.
-            if (
-                current_ps1_count > initial_ps1_count
-                or cur_pane_output.rstrip().endswith(CMD_OUTPUT_PS1_END.rstrip())
-            ):
+            # --- Improved completion detection (avoids false positives) ---
+            # Criteria:
+            #   (A) We saw a NEW PS1 AFTER sending the command
+            #   (B) The LAST visible line matches PS1 AND new output appeared
+            #   (C) (optional) If PS1 appears but pane_size hasn't shrunk (scrolling)
+            last_line = cur_pane_output.splitlines()[-1] if cur_pane_output else ''
+
+            saw_new_ps1 = current_ps1_count > initial_ps1_count
+            last_line_is_ps1 = last_line.rstrip() == CMD_OUTPUT_PS1_END.rstrip()
+            output_changed = cur_pane_output != initial_pane_output
+
+            # Case A: A *new* PS1 is generated after the command → safe completion
+            if saw_new_ps1:
                 return self._handle_completed_command(
                     command,
                     pane_content=cur_pane_output,
                     ps1_matches=ps1_matches,
                     hidden=getattr(action, 'hidden', False),
                 )
+
+            # Case B: The last line is a PS1 prompt AND output has changed →
+            # avoids treating leftover scrollback PS1 as new.
+            if last_line_is_ps1 and output_changed:
+                return self._handle_completed_command(
+                    command,
+                    pane_content=cur_pane_output,
+                    ps1_matches=ps1_matches,
+                    hidden=getattr(action, 'hidden', False),
+                )
+            # --- End improved completion detection ---
 
             # Timeout checks should only trigger if a new prompt hasn't appeared yet.
 
