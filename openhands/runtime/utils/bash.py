@@ -661,6 +661,12 @@ class BashSession:
         # Extract the UUID of the initial prompt (if any)
         initial_prompt_uuid = None
 
+        # Capture the pane height here so we can reject scrollback “ghost prompts”
+        initial_line_count = len(initial_pane_output.splitlines()) if initial_pane_output else 0
+
+        # Remember when the command was actually sent
+        command_sent_time = time.time()
+
         if initial_ps1_matches:
             initial_prompt_uuid = CmdOutputMetadata.from_ps1_match(initial_ps1_matches[-1]).uuid
 
@@ -775,24 +781,37 @@ class BashSession:
                 last_change_time = time.time()
                 logger.debug(f'CONTENT UPDATED DETECTED at {last_change_time}')
 
-            # Look for any PS1 prompt whose UUID != initial_prompt_uuid
-            new_prompt_detected = False
+            # --- Improved UUID-based completion detection ---
+            new_prompt_match = None
 
             for match in ps1_matches:
                 meta = CmdOutputMetadata.from_ps1_match(match)
 
-                # completion detected when we receive a NEW prompt UUID
+                # Skip prompts printed BEFORE the command was sent
+                if meta.timestamp <= command_sent_time:
+                    continue
+
+                # Skip ghost prompts that scrolled into view
+                found_line = cur_pane_output.count("\n", 0, match.start())
+                if found_line < initial_line_count:
+                    # This prompt existed before the command was issued
+                    continue
+
+                # A real, new prompt UUID means the command finished
                 if initial_prompt_uuid is None or meta.uuid != initial_prompt_uuid:
-                    new_prompt_detected = True
+                    new_prompt_match = match
                     break
 
-            if new_prompt_detected:
+            # If a new prompt was found, treat the command as completed
+            if new_prompt_match is not None:
+                logger.debug("NEW PROMPT DETECTED — command completed.")
                 return self._handle_completed_command(
                     command,
                     pane_content=cur_pane_output,
                     ps1_matches=ps1_matches,
-                    hidden=getattr(action, 'hidden', False),
+                    hidden=getattr(action, "hidden", False),
                 )
+            # --- End improved completion detection ---
 
             # Timeout checks should only trigger if a new prompt hasn't appeared yet.
 
