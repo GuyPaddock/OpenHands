@@ -657,6 +657,13 @@ class BashSession:
         initial_ps1_matches = CmdOutputMetadata.matches_ps1_metadata(
             initial_pane_output
         )
+
+        # Extract the UUID of the initial prompt (if any)
+        initial_prompt_uuid = None
+
+        if initial_ps1_matches:
+            initial_prompt_uuid = CmdOutputMetadata.from_ps1_match(initial_ps1_matches[-1]).uuid
+
         initial_ps1_count = len(initial_ps1_matches)
         logger.debug(f'Initial PS1 count: {initial_ps1_count}')
 
@@ -768,36 +775,24 @@ class BashSession:
                 last_change_time = time.time()
                 logger.debug(f'CONTENT UPDATED DETECTED at {last_change_time}')
 
-            # --- Improved completion detection (avoids false positives) ---
-            # Criteria:
-            #   (A) We saw a NEW PS1 AFTER sending the command
-            #   (B) The LAST visible line matches PS1 AND new output appeared
-            #   (C) (optional) If PS1 appears but pane_size hasn't shrunk (scrolling)
-            last_line = cur_pane_output.splitlines()[-1] if cur_pane_output else ''
+            # Look for any PS1 prompt whose UUID != initial_prompt_uuid
+            new_prompt_detected = False
 
-            saw_new_ps1 = current_ps1_count > initial_ps1_count
-            last_line_is_ps1 = last_line.rstrip() == CMD_OUTPUT_PS1_END.rstrip()
-            output_changed = cur_pane_output != initial_pane_output
+            for match in ps1_matches:
+                meta = CmdOutputMetadata.from_ps1_match(match)
 
-            # Case A: A *new* PS1 is generated after the command → safe completion
-            if saw_new_ps1:
+                # completion detected when we receive a NEW prompt UUID
+                if initial_prompt_uuid is None or meta.uuid != initial_prompt_uuid:
+                    new_prompt_detected = True
+                    break
+
+            if new_prompt_detected:
                 return self._handle_completed_command(
                     command,
                     pane_content=cur_pane_output,
                     ps1_matches=ps1_matches,
                     hidden=getattr(action, 'hidden', False),
                 )
-
-            # Case B: The last line is a PS1 prompt AND output has changed →
-            # avoids treating leftover scrollback PS1 as new.
-            if last_line_is_ps1 and output_changed:
-                return self._handle_completed_command(
-                    command,
-                    pane_content=cur_pane_output,
-                    ps1_matches=ps1_matches,
-                    hidden=getattr(action, 'hidden', False),
-                )
-            # --- End improved completion detection ---
 
             # Timeout checks should only trigger if a new prompt hasn't appeared yet.
 
