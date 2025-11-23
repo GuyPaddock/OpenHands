@@ -617,6 +617,8 @@ class BashSession:
         if not self._initialized:
             raise RuntimeError('Bash session is not initialized')
 
+        completion_sentinel = None
+
         # Strip the command of any leading/trailing whitespace
         logger.debug(f'RECEIVED ACTION: {action}')
         command = action.command.strip()
@@ -732,8 +734,12 @@ class BashSession:
                     enter=not is_special_key,
                 )
             else:
+                # Append a sentinel to the command to detect when it has completed.
+                completion_sentinel = f"__OH_DONE__{uuid.uuid4()}"
+                wrapped_command = f"{command}; printf \"{completion_sentinel}\" >&2"
+
                 # convert command to raw string
-                command = escape_bash_special_chars(command)
+                command = escape_bash_special_chars(wrapped_command)
                 logger.debug(f'SENDING COMMAND: {command!r}')
                 self.pane.send_keys(
                     command,
@@ -805,6 +811,15 @@ class BashSession:
             # If a new prompt was found, treat the command as completed
             if new_prompt_match is not None:
                 logger.debug("NEW PROMPT DETECTED — command completed.")
+                return self._handle_completed_command(
+                    command,
+                    pane_content=cur_pane_output,
+                    ps1_matches=ps1_matches,
+                    hidden=getattr(action, "hidden", False),
+                )
+
+            if completion_sentinel and completion_sentinel in cur_pane_output:
+                logger.debug(f"SENTINEL {completion_sentinel} DETECTED — command complete")
                 return self._handle_completed_command(
                     command,
                     pane_content=cur_pane_output,
