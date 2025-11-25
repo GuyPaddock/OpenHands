@@ -166,6 +166,12 @@ class BashSession:
         # Actually send the command / input to the pane.
         self.tmux.send_keys(to_send, enter=not action.is_input)
 
+        # When is_input=True and command == "C-c", forcibly reset state.
+        if command in ("C-c", "\x03"):
+            self.state.state = RunState.COMPLETED
+            self.state.pending_sentinel = None
+            time.sleep(self.POLL_INTERVAL)
+
         # Main polling loop
         while should_continue():
             try:
