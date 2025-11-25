@@ -1,3 +1,4 @@
+import os
 import time
 import uuid
 from typing import Optional
@@ -44,7 +45,9 @@ class BashSession:
 
         Args:
             work_dir: Filesystem path where the shell will start.
-            username: Reserved for future multi-user support (currently unused).
+            username: Reserved for future multi-user support; if set and
+                environment flags allow, the shell will be started via
+                ``su <username> -``.
             no_change_timeout_seconds: Time without new output before a
                 "no-output" timeout is considered for non-blocking actions.
             **_: Ignored extra keyword arguments for forward-compatibility.
@@ -70,8 +73,39 @@ class BashSession:
         return self.state.cwd
 
     def initialize(self) -> None:
-        """Start tmux + bash and configure a deterministic prompt."""
+        """Start tmux + bash and configure a deterministic prompt.
+
+        If `username` is set and SU_TO_USER / RUNTIME_USERNAME conditions
+        are satisfied, we will launch a login shell using `su <username> -`.
+        """
+        # Base shell command
         shell_cmd = "/bin/bash"
+
+        # Optional user-switch, controlled by environment variables:
+        #
+        #   RUNTIME_USERNAME  – runtime's current username
+        #   SU_TO_USER        – if "true"/"1"/"yes"/etc, allow su behavior
+        #
+        # Only specific usernames are allowed: the runtime user, "root",
+        # or "openhands".
+        if self.username is not None:
+            su_to_user = os.getenv("SU_TO_USER", "true").lower() in (
+                "1",
+                "true",
+                "t",
+                "yes",
+                "y",
+                "on",
+            )
+            runtime_username = os.getenv("RUNTIME_USERNAME")
+
+            if su_to_user and self.username in filter(
+                None,
+                (runtime_username, "root", "openhands"),
+            ):
+                # Launch a login shell for the requested user.
+                shell_cmd = f"su {self.username} -"
+
         self.tmux = TmuxDriver(self.work_dir, shell_cmd, self.HISTORY_LIMIT)
         self.tmux.start()
 
