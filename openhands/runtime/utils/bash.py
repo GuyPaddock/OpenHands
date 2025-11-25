@@ -60,6 +60,145 @@ class BashSession:
         self.tmux: Optional[TmuxDriver] = None
 
     # ------------------------------------------------------------------ #
+    # Utility helpers
+    # ------------------------------------------------------------------ #
+
+    @staticmethod
+    def _parse_boolean(value: str) -> bool:
+        """Interpret typical environment-style boolean strings.
+
+        Accepted truthy values (case-insensitive):
+            "1", "true", "t", "yes", "y", "on"
+
+        Args:
+            value: Raw string value (e.g. from os.getenv).
+
+        Returns:
+            True if the value is considered truthy, otherwise False.
+        """
+        return value.lower() in ("1", "true", "t", "yes", "y", "on")
+
+    def _maybe_block_new_command(
+        self,
+        action: CmdRunAction,
+        command: str,
+    ) -> Optional[CmdOutputObservation]:
+        """Return a blocking observation if a previous command is still running.
+
+        Preserves original behavior:
+
+        - Only blocks when the session state is RUNNING
+        - Only blocks for non-input actions (action.is_input is False)
+        - Returns the current pane snapshot and a descriptive suffix
+        """
+        if self.state.state is not RunState.RUNNING or action.is_input:
+            return None
+
+        meta = CmdOutputMetadata()
+        meta.suffix = (
+            f'\n[Your command "{command}" is NOT executed. '
+            "The previous command is still running - You CANNOT send new "
+            "commands until the previous command is completed. "
+            "By setting `is_input` to `true`, you can interact with the "
+            f"current process: {TIMEOUT_MESSAGE_TEMPLATE}]"
+        )
+        pane_snapshot = self.tmux.capture()
+        return CmdOutputObservation(
+            content=pane_snapshot,
+            command=command,
+            metadata=meta,
+        )
+
+    def _prepare_command_for_execution(
+        self,
+        command: str,
+        action: CmdRunAction,
+    ) -> str:
+        """Append completion sentinel for full commands and update state.
+
+        Semantics:
+        - Interactive input (is_input=True) is sent as-is.
+        - Non-input commands get a unique stderr sentinel appended.
+        - Sets SessionState.state to RUNNING for non-input commands.
+        - Stores pending_sentinel so the fallback path can detect it.
+
+        Args:
+            command: Original command string.
+            action: CmdRunAction describing the request.
+
+        Returns:
+            The actual string that should be sent to the shell.
+        """
+        to_send = command
+
+        if not action.is_input:
+            sentinel = f"__OH_DONE__{uuid.uuid4()}"
+            self.state.pending_sentinel = sentinel
+            # Print sentinel to stderr so stdout pipelines are minimally affected.
+            to_send = f'{command}; printf "{sentinel}" >&2'
+            self.state.state = RunState.RUNNING
+
+        return to_send
+
+    def _capture_pane_or_error(self) -> str | ErrorObservation:
+        """Capture pane contents or return an ErrorObservation on failure.
+
+        Preserves original behavior:
+        - On tmux capture failure, transition to IDLE and clear sentinel.
+        - On success, updates last_output with the full pane text.
+
+        Returns:
+            Captured pane text, or ErrorObservation if capture failed.
+        """
+        try:
+            pane: str = self.tmux.capture()
+        except Exception as exc:  # tmux/session failure
+            self.state.state = RunState.IDLE
+            self.state.pending_sentinel = None
+            return ErrorObservation(
+                content=f"Bash session became unresponsive. Error: {exc}"
+            )
+
+        # Track last output for potential higher-level diagnostics.
+        self.state.last_output = pane
+        return pane
+
+    def _finalize_completed(
+        self,
+        command: str,
+        pane: str,
+        prompt_match,
+    ) -> CmdOutputObservation:
+        """Run completion handler and update state like the original loop."""
+        obs = self._handle_completed(command, pane, prompt_match)
+        self.state.state = RunState.COMPLETED
+        self.state.pending_sentinel = None
+        return obs
+
+    def _finalize_no_output(
+        self,
+        command: str,
+        pane: str,
+    ) -> CmdOutputObservation:
+        """Run no-output handler and update state like the original loop."""
+        obs = self._handle_no_output(command, pane)
+        self.state.state = RunState.NO_OUTPUT_TIMEOUT
+        self.state.pending_sentinel = None
+        return obs
+
+    def _finalize_hard_timeout(
+        self,
+        command: str,
+        pane: str,
+        timeout: float,
+    ) -> CmdOutputObservation:
+        """Run hard-timeout handler and update state like the original loop."""
+        obs = self._handle_hard_timeout(command, pane, timeout)
+        self.state.state = RunState.HARD_TIMEOUT
+        self.state.pending_sentinel = None
+        return obs
+
+    # ------------------------------------------------------------------ #
     # Lifecycle helpers
     # ------------------------------------------------------------------ #
 
@@ -89,14 +228,7 @@ class BashSession:
         # Only specific usernames are allowed: the runtime user, "root",
         # or "openhands".
         if self.username is not None:
-            su_to_user = os.getenv("SU_TO_USER", "true").lower() in (
-                "1",
-                "true",
-                "t",
-                "yes",
-                "y",
-                "on",
-            )
+            su_to_user = self._parse_boolean(os.getenv("SU_TO_USER", "true"))
             runtime_username = os.getenv("RUNTIME_USERNAME")
 
             if su_to_user and self.username in filter(
@@ -165,37 +297,18 @@ class BashSession:
                 metadata=CmdOutputMetadata(),
             )
 
-        # Block new commands while the previous is running
-        if self.state.state is RunState.RUNNING and not action.is_input:
-            meta = CmdOutputMetadata()
-            meta.suffix = (
-                f'\n[Your command "{command}" is NOT executed. '
-                "The previous command is still running - You CANNOT send new "
-                "commands until the previous command is completed. "
-                "By setting `is_input` to `true`, you can interact with the "
-                f"current process: {TIMEOUT_MESSAGE_TEMPLATE}]"
-            )
-            pane_snapshot = self.tmux.capture()
-            return CmdOutputObservation(
-                content=pane_snapshot,
-                command=command,
-                metadata=meta,
-            )
+        # Block new commands while the previous is running (factored helper).
+        blocked = self._maybe_block_new_command(action, command)
+        if blocked is not None:
+            return blocked
 
         run_uuid: Optional[str] = self.state.last_prompt_uuid
         start: float = time.time()
         last_change: float = start
         initial_output: str = self.tmux.capture()
 
-        # Append a completion sentinel for full commands.
-        to_send: str = command
-
-        if not action.is_input:
-            sentinel = f"__OH_DONE__{uuid.uuid4()}"
-            self.state.pending_sentinel = sentinel
-            # Print sentinel to stderr so stdout pipelines are minimally affected.
-            to_send = f'{command}; printf "{sentinel}" >&2'
-            self.state.state = RunState.RUNNING
+        # Append a completion sentinel for full commands (factored helper).
+        to_send: str = self._prepare_command_for_execution(command, action)
 
         # Actually send the command / input to the pane.
         self.tmux.send_keys(to_send, enter=not action.is_input)
@@ -208,19 +321,13 @@ class BashSession:
 
         # Main polling loop
         while should_continue():
-            try:
-                pane: str = self.tmux.capture()
-            except Exception as exc:  # tmux/session failure
-                self.state.state = RunState.IDLE
-                self.state.pending_sentinel = None
-                return ErrorObservation(
-                    content=f"Bash session became unresponsive. Error: {exc}"
-                )
+            pane_or_error = self._capture_pane_or_error()
+            if isinstance(pane_or_error, ErrorObservation):
+                # tmux/session failure, already reset state
+                return pane_or_error
 
+            pane: str = pane_or_error
             now: float = time.time()
-
-            # Track last output for potential higher-level diagnostics.
-            self.state.last_output = pane
 
             # ------------------------------------------------------------------
             # Completion via PS1 prompt (primary path)
@@ -229,10 +336,7 @@ class BashSession:
             prompts = prompt_detector.find_prompts(pane)
 
             if new_prompt is not None:
-                obs = self._handle_completed(command, pane, new_prompt)
-                self.state.state = RunState.COMPLETED
-                self.state.pending_sentinel = None
-                return obs
+                return self._finalize_completed(command, pane, new_prompt)
 
             # ------------------------------------------------------------------
             # Completion via sentinel fallback (if the UUID heuristics fail)
@@ -243,10 +347,7 @@ class BashSession:
                 and prompts
             ):
                 fallback_prompt = prompts[-1]
-                obs = self._handle_completed(command, pane, fallback_prompt)
-                self.state.state = RunState.COMPLETED
-                self.state.pending_sentinel = None
-                return obs
+                return self._finalize_completed(command, pane, fallback_prompt)
 
             # ------------------------------------------------------------------
             # No-output timeout for non-blocking actions
@@ -259,19 +360,15 @@ class BashSession:
                 not action.blocking
                 and (now - last_change) > float(self.no_change_timeout)
             ):
-                obs = self._handle_no_output(command, pane)
-                self.state.state = RunState.NO_OUTPUT_TIMEOUT
-                self.state.pending_sentinel = None
-                return obs
+                return self._finalize_no_output(command, pane)
 
             # ------------------------------------------------------------------
             # Hard timeout regardless of blocking mode
             # ------------------------------------------------------------------
             if action.timeout and (now - start) > float(action.timeout):
-                obs = self._handle_hard_timeout(command, pane, float(action.timeout))
-                self.state.state = RunState.HARD_TIMEOUT
-                self.state.pending_sentinel = None
-                return obs
+                return self._finalize_hard_timeout(
+                    command, pane, float(action.timeout)
+                )
 
             time.sleep(self.POLL_INTERVAL)
 
