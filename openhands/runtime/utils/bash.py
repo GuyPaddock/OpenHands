@@ -12,7 +12,6 @@ from .shell.session_state import SessionState, RunState
 from .shell.tmux_driver import TmuxDriver
 from .shell import prompt_detector
 from .shell import output_parser
-from .shell import zombie_guard
 
 
 class BashSession:
@@ -23,7 +22,6 @@ class BashSession:
     * :mod:`shell.tmux_driver` – raw tmux / pane IO
     * :mod:`shell.prompt_detector` – PS1 / metadata parsing
     * :mod:`shell.output_parser` – extracting command output
-    * :mod:`shell.zombie_guard` – best-effort cleanup of defunct tmux processes
 
     It exposes a single public method, :meth:`execute`, which takes a
     :class:`CmdRunAction` and returns either :class:`CmdOutputObservation`
@@ -73,8 +71,6 @@ class BashSession:
 
     def initialize(self) -> None:
         """Start tmux + bash and configure a deterministic prompt."""
-        zombie_guard.cleanup()
-
         shell_cmd = "/bin/bash"
         self.tmux = TmuxDriver(self.work_dir, shell_cmd, self.HISTORY_LIMIT)
         self.tmux.start()
@@ -94,7 +90,6 @@ class BashSession:
             self.tmux.kill()
             self.tmux = None
 
-        zombie_guard.cleanup()
         self.state.state = RunState.IDLE
         self.state.pending_sentinel = None
 
