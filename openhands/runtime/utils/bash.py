@@ -1,7 +1,8 @@
 import os
+import re
 import time
 import uuid
-from typing import Optional
+from typing import Optional, cast
 
 from openhands.events.action import CmdRunAction
 from openhands.events.observation import CmdOutputObservation, ErrorObservation
@@ -418,30 +419,63 @@ class BashSession:
         self,
         command: str,
         pane: str,
-        prompt_match,
+        prompt_match: re.Match[str],
     ) -> CmdOutputObservation:
-        """Build a completion observation once a new prompt is detected.
-
-        This method:
-
-        1. Re-parses all prompts in the pane.
-        2. Uses :class:`CmdOutputMetadata` to reconstruct metadata.
-        3. Extracts output between prompts via :mod:`output_parser`.
-        4. Updates session state (UUID and working directory).
         """
-        prompts = prompt_detector.find_prompts(pane)
-        meta = CmdOutputMetadata.from_ps1_match(prompt_match)
-        out = output_parser.extract_between_prompts(pane, prompts)
+        Handle the completion of a command using the *specific* prompt_match
+        that triggered completion.
 
-        # Working-directory tracking
+        Args:
+            command: The executed command string.
+            pane: Full captured pane text at completion time.
+            prompt_match: The precise PS1 metadata prompt that marks completion.
+
+        Returns:
+            CmdOutputObservation: An observation object containing cleaned
+            command output and extracted metadata.
+        """
+
+        # 1. Build metadata from the specific prompt.
+        meta: CmdOutputMetadata = CmdOutputMetadata.from_ps1_match(prompt_match)
+
+        # Update state with metadata-derived values.
         self.state.last_prompt_uuid = meta.uuid
         if getattr(meta, "working_dir", None):
             self.state.cwd = meta.working_dir
 
-        return CmdOutputObservation(
-            content=out.rstrip(),
-            command=command,
-            metadata=meta,
+        # 2. Find all prompts for context.
+        prompts: list[re.Match[str]] = prompt_detector.find_prompts(pane)
+
+        # 3. Check truncation: only this prompt is visible.
+        only_prompt_visible: bool = (len(prompts) == 1 and prompts[0] == prompt_match)
+
+        if only_prompt_visible:
+            raw_output: str = pane[: prompt_match.start()]
+            num_lines: int = len(raw_output.splitlines())
+
+            if num_lines > 0:
+                meta.prefix = (
+                    "[Previous command outputs are truncated. "
+                    f"Showing the last {num_lines} lines of the output below.]\n"
+                )
+
+        else:
+            # Multi-prompt case: stitch output between prompts using prompt_match
+            # as the final anchor.
+            raw_output = self._extract_output_segments_using_prompt_match(
+                pane,
+                prompts,
+                prompt_match,
+            )
+
+        # 4. Apply exit-code and special key suffixes.
+        self._apply_special_suffixes(command, meta)
+
+        # 5. Finalize.
+        return self._finalize_successful_completion(
+            command,
+            raw_output,
+            meta,
         )
 
     @staticmethod
@@ -472,6 +506,74 @@ class BashSession:
         )
         return CmdOutputObservation(
             content=pane,
+            command=command,
+            metadata=meta,
+        )
+
+    # --------------------------------------------------------------- #
+    # Supporting methods for completion
+    # --------------------------------------------------------------- #
+
+    @staticmethod
+    def _extract_output_segments_using_prompt_match(
+        pane: str,
+        prompts: list[re.Match[str]],
+        prompt_match: re.Match[str],
+    ) -> str:
+        """
+        Extract command output using prompt_match as the definitive delimiter.
+
+        Args:
+            pane: Entire pane content.
+            prompts: All detected prompt matches within the pane.
+            prompt_match: The specific prompt signaling command completion.
+
+        Returns:
+            A newline-joined string representing the command output.
+        """
+        segments: list[str] = []
+
+        for i, pr in enumerate(prompts):
+            if pr == prompt_match:
+                break
+
+            if i + 1 < len(prompts):
+                segment: str = pane[pr.end() + 1: prompts[i + 1].start()]
+                segments.append(segment)
+            else:
+                # No next prompt → end at the completion prompt.
+                segment = pane[pr.end() + 1: prompt_match.start()]
+                segments.append(segment)
+
+        return "\n".join(segments)
+
+    def _apply_special_suffixes(self, command: str, meta: CmdOutputMetadata):
+        is_special_key = self._is_special_key(command)
+
+        if hasattr(meta, "exit_code"):
+            if is_special_key:
+                meta.suffix = (
+                    f"\n[The command completed with exit code {meta.exit_code}. "
+                    f"CTRL+{command[-1].upper()} was sent.]"
+                )
+            else:
+                meta.suffix = f"\n[The command completed with exit code {meta.exit_code}.]"
+
+    def _finalize_successful_completion(
+        self,
+        command: str,
+        output: str,
+        meta: CmdOutputMetadata,
+    ) -> CmdOutputObservation:
+        """Clear terminal scrollback and build the final observation."""
+        if self.tmux is not None:
+            self.tmux.clear()
+
+        self.state.state = RunState.COMPLETED
+        self.state.pending_sentinel = None
+
+        return CmdOutputObservation(
+            content=output.rstrip(),
             command=command,
             metadata=meta,
         )
