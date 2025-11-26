@@ -78,6 +78,14 @@ class BashSession:
         """
         return value.lower() in ("1", "true", "t", "yes", "y", "on")
 
+    @staticmethod
+    def _is_special_key(command: str) -> bool:
+        """Check if the command is a special key, of the form C-<key>."""
+        return ((stripped_command := command.strip()) and
+                stripped_command.startswith('C-') and
+                len(stripped_command) == 3
+                and stripped_command[2].isalpha())
+
     def _maybe_block_new_command(
         self,
         action: CmdRunAction,
@@ -297,27 +305,52 @@ class BashSession:
                 metadata=CmdOutputMetadata(),
             )
 
-        # Block new commands while the previous is running (factored helper).
+        # Block new commands while the previous is running.
         blocked = self._maybe_block_new_command(action, command)
         if blocked is not None:
             return blocked
 
+        # --------------------------------------------------------------
+        # SPECIAL-KEY PATH (C-c/C-d/C-z) FOR INTERACTIVE INPUT
+        # --------------------------------------------------------------
+        if action.is_input and self._is_special_key(command):
+            # Send the actual control keystroke; tmux interprets "C-c" as Ctrl-C.
+            self.tmux.send_keys(command, enter=False)
+            time.sleep(self.POLL_INTERVAL)
+
+            # Synthesize a completion, even if no prompt/sentinel is visible.
+            pane = self.tmux.capture()
+            meta = CmdOutputMetadata()
+            meta.suffix = (
+                f"[CTRL-{command[-1].upper()} sent. "
+                "The running command was interrupted.]"
+            )
+
+            # Reset session state so new commands are allowed.
+            self.state.state = RunState.COMPLETED
+            self.state.pending_sentinel = None
+
+            # Treat the entire pane as content; higher layers can decide
+            # how to surface this.
+            return CmdOutputObservation(
+                content=pane.rstrip(),
+                command=command,
+                metadata=meta,
+            )
+
+        # --------------------------------------------------------------
+        # NORMAL PATH (non-special commands)
+        # --------------------------------------------------------------
         run_uuid: Optional[str] = self.state.last_prompt_uuid
         start: float = time.time()
         last_change: float = start
         initial_output: str = self.tmux.capture()
 
-        # Append a completion sentinel for full commands (factored helper).
+        # Append completion sentinel for full commands and update state.
         to_send: str = self._prepare_command_for_execution(command, action)
 
         # Actually send the command / input to the pane.
         self.tmux.send_keys(to_send, enter=not action.is_input)
-
-        # When is_input=True and command == "C-c", forcibly reset state.
-        if command in ("C-c", "\x03"):
-            self.state.state = RunState.COMPLETED
-            self.state.pending_sentinel = None
-            time.sleep(self.POLL_INTERVAL)
 
         # Main polling loop
         while should_continue():
