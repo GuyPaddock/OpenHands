@@ -36,9 +36,16 @@ class TmuxDriver:
         self.window: Optional[libtmux.Window] = None
         self.pane: Optional[libtmux.Pane] = None
 
+        self._current_ps1: Optional[str] = None
+
+
     def start(self) -> None:
-        """Create a new tmux server/session/window/pane."""
+        """Create and start Bash running in a new tmux server, session, window, and pane.
+
+        tmux is configured to remain running even if Bash dies (e.g., due to set -e).
+        """
         self.server = libtmux.Server()
+
         # Touch sessions to ensure the server is responsive.
         _ = self.server.sessions
 
@@ -51,38 +58,55 @@ class TmuxDriver:
             y=1000,
         )
 
-        init_win = self.session.active_window
-        self.window = self.session.new_window(
-            window_name="bash",
-            window_shell=self.shell_cmd,
-            start_directory=self.work_dir,
-        )
-        self.pane = self.window.active_pane
+        # Set tmux history limit globally.
         self.session.set_option("history-limit", str(self.history_limit), global_=True)
-        init_win.kill()
+
+        # tmux always creates a default initial window during new_session
+        default_window = self.session.active_window
+
+        # Create KEEPALIVE WINDOW
+        keepalive_window = self._create_keepalive_window()
+
+        # Initialize the bash window that OpenHands will interact with.
+        self._initialize_bash_pane()
+
+        # Kill the implicit initial window tmux created as long as it's not a window we care about.
+        if default_window.id not in (keepalive_window.id, self.window.id):
+            default_window.kill()
 
     def configure_prompt(self, ps1: str) -> None:
         """Install a deterministic PS1/PS2 for easier prompt detection."""
-        assert self.pane is not None
-        self.pane.send_keys(
-            f"export PROMPT_COMMAND='export PS1=\"{ps1}\"'; export PS2=\"\""
-        )
-        # Wait for command to take effect
-        time.sleep(0.1)
+        self._current_ps1 = ps1
+
+        # Only configure PS1 if bash is alive. Otherwise, it will be configured automatically the
+        # next time bash is respawned.
+        if self._is_bash_alive():
+            assert self.pane is not None
+            self.pane.send_keys(
+                f"export PROMPT_COMMAND='export PS1=\"{ps1}\"'; export PS2=\"\""
+            )
+            # Wait for the command to take effect.
+            time.sleep(0.1)
 
     def send_keys(self, s: str, *, enter: bool = True) -> None:
         """Send raw keystrokes to the active pane."""
+        self._ensure_bash_alive()
+
         assert self.pane is not None
         self.pane.send_keys(s, enter=enter)
 
     def capture(self) -> str:
         """Capture the full contents of the active pane as a single string."""
+        self._ensure_bash_alive()
+
         assert self.pane is not None
         lines = self.pane.cmd("capture-pane", "-J", "-pS", "-").stdout
         return "\n".join(line.rstrip() for line in lines)
 
     def clear(self) -> None:
         """Clear on-screen content and pane scrollback."""
+        self._ensure_bash_alive()
+
         assert self.pane is not None
         self.pane.send_keys("C-l", enter=False)
         time.sleep(0.1)
@@ -114,3 +138,84 @@ class TmuxDriver:
                     pass
             finally:
                 self.server = None
+
+    def _ensure_bash_alive(self) -> None:
+        """Ensure the Bash pane is alive.
+
+        If the pane, the window, or the session disappears (e.g., bash exited due to `set -e`),
+        automatically respawn it while keeping the keepalive window intact."""
+        if not self._is_bash_alive():
+            self._initialize_bash_pane()
+
+    def _is_bash_alive(self) -> bool:
+        """Check whether the Bash pane is alive and able to be captured.
+
+
+        If the pane, the window, or the session disappears (e.g., bash exited due to `set -e`),
+        Bash is no longer considered alive."""
+        is_alive = True
+
+        try:
+            # Validate session and window association
+            if self.session is None or self.window is None:
+                # Session/window missing, so the tmux stack needs to be respawned.
+                is_alive = False
+            else:
+                # Refresh objects from libtmux (prevents stale references)
+                self.session.refresh()
+                self.window.refresh()
+
+                # Validate pane existence.
+                if self.pane not in self.window.panes:
+                    # Bash pane disappeared (bash exited?).
+                    is_alive = False
+                else:
+                    # Try a trivial capture to ensure the pane is responsive
+                    try:
+                        _ = self.pane.capture_pane()
+                    except Exception:
+                        # Pane unresponsive; must respawn.
+                        is_alive = False
+
+        except Exception:
+            # FALLBACK: Respawn Bash pane
+            is_alive = False
+
+        return is_alive
+
+    def _initialize_bash_pane(self) -> None:
+        # Create a REAL bash window for OpenHands to interact with.
+        bash_window = self._create_bash_window()
+
+        # Select the Bash pane for actual use.
+        self.window = bash_window
+        self.pane = bash_window.active_pane
+
+        if self._current_ps1 is not None:
+            # Reconfigure the prompt to match the last one we received.
+            self.configure_prompt(self._current_ps1)
+
+    def _create_keepalive_window(self) -> libtmux.Window:
+        """Create the keepalive window that prevents tmux from dying if bash exits."""
+        keepalive_window = self.session.new_window(
+            window_name="keepalive",
+            start_directory=self.work_dir,
+            attach=False,
+            window_shell="tail -f /dev/null"
+        )
+
+        # Make it visually tiny so it doesn't clutter tmux
+        keepalive_window.attached_pane.resize_pane(height=1)
+
+        return keepalive_window
+
+    def _create_bash_window(self) -> libtmux.Window:
+        """Create and return a new Bash window."""
+        window = self.session.new_window(
+            window_name="bash",
+            window_shell=self.shell_cmd,
+            start_directory=self.work_dir,
+            attach=False
+        )
+
+        return window
