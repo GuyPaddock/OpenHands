@@ -3,6 +3,7 @@ from typing import Optional
 
 import libtmux
 
+from openhands.core.logger import openhands_logger as logger
 
 class TmuxDriver:
     """Thin wrapper around tmux.
@@ -36,6 +37,7 @@ class TmuxDriver:
         self.window: Optional[libtmux.Window] = None
         self.pane: Optional[libtmux.Pane] = None
 
+        self._session_name: Optional[str] = None
         self._current_ps1: Optional[str] = None
 
 
@@ -49,9 +51,9 @@ class TmuxDriver:
         # Touch sessions to ensure the server is responsive.
         _ = self.server.sessions
 
-        session_name = f"openhands-{time.time_ns()}"
+        self._session_name = f"openhands-{time.time_ns()}"
         self.session = self.server.new_session(
-            session_name=session_name,
+            session_name=self._session_name,
             start_directory=self.work_dir,
             kill_session=True,
             x=1000,
@@ -145,11 +147,14 @@ class TmuxDriver:
         If the pane, the window, or the session disappears (e.g., bash exited due to `set -e`),
         automatically respawn it while keeping the keepalive window intact."""
         if not self._is_bash_alive():
+            logger.error(
+                f'The Bash pane in tmux session "{self._session_name}" exited and is being '
+                f'respawned.'
+            )
             self._initialize_bash_pane()
 
     def _is_bash_alive(self) -> bool:
         """Check whether the Bash pane is alive and able to be captured.
-
 
         If the pane, the window, or the session disappears (e.g., bash exited due to `set -e`),
         Bash is no longer considered alive."""
@@ -158,7 +163,10 @@ class TmuxDriver:
         try:
             # Validate session and window association
             if self.session is None or self.window is None:
-                # Session/window missing, so the tmux stack needs to be respawned.
+                logger.warning(
+                    f'The Bash session or window in tmux session "{self._session_name}" is missing.'
+                )
+
                 is_alive = False
             else:
                 # Refresh objects from libtmux (prevents stale references)
@@ -167,18 +175,27 @@ class TmuxDriver:
 
                 # Validate pane existence.
                 if self.pane not in self.window.panes:
-                    # Bash pane disappeared (bash exited?).
+                    logger.warning(
+                        f'The Bash window in tmux session "{self._session_name}" has exited.'
+                    )
+
                     is_alive = False
                 else:
                     # Try a trivial capture to ensure the pane is responsive
                     try:
                         _ = self.pane.capture_pane()
                     except Exception:
-                        # Pane unresponsive; must respawn.
+                        logger.warning(
+                            f'The Bash window in tmux session "{self._session_name}" is '
+                            f'unresponsive.'
+                        )
                         is_alive = False
 
-        except Exception:
-            # FALLBACK: Respawn Bash pane
+        except Exception as e:
+            logger.warning(
+                f'Encountered an error when checking on the health of the Bash window in tmux '
+                f'session "{self._session_name}": {e}'
+            )
             is_alive = False
 
         return is_alive
