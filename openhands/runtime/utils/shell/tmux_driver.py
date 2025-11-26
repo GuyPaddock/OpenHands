@@ -63,18 +63,20 @@ class TmuxDriver:
         # Set tmux history limit globally.
         self.session.set_option("history-limit", str(self.history_limit), global_=True)
 
-        # tmux always creates a default initial window during new_session
-        default_window = self.session.active_window
+        # tmux always creates a default initial window during new_session. Let's use it as the
+        # keepalive window.
+        keepalive_window = self.session.active_window
+        assert keepalive_window is not None
 
-        # Create KEEPALIVE WINDOW
-        keepalive_window = self._create_keepalive_window()
+        keepalive_window.rename_window("keepalive")
+        keepalive_pane = keepalive_window.attached_pane
+
+        # Replace whatever shell tmux auto-launched with a persistent keepalive process.
+        keepalive_pane.send_keys("exec tail -f /dev/null", enter=True)
+        time.sleep(0.05)
 
         # Initialize the bash window that OpenHands will interact with.
         self._initialize_bash_pane()
-
-        # Kill the implicit initial window tmux created as long as it's not a window we care about.
-        if default_window.id not in (keepalive_window.id, self.window.id):
-            default_window.kill()
 
     def configure_prompt(self, ps1: str) -> None:
         """Install a deterministic PS1/PS2 for easier prompt detection."""
@@ -211,20 +213,6 @@ class TmuxDriver:
         if self._current_ps1 is not None:
             # Reconfigure the prompt to match the last one we received.
             self.configure_prompt(self._current_ps1)
-
-    def _create_keepalive_window(self) -> libtmux.Window:
-        """Create the keepalive window that prevents tmux from dying if bash exits."""
-        keepalive_window = self.session.new_window(
-            window_name="keepalive",
-            start_directory=self.work_dir,
-            attach=False,
-            window_shell="tail -f /dev/null"
-        )
-
-        # Make it visually tiny so it doesn't clutter tmux
-        keepalive_window.attached_pane.resize_pane(height=1)
-
-        return keepalive_window
 
     def _create_bash_window(self) -> libtmux.Window:
         """Create and return a new Bash window."""
