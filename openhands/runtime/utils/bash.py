@@ -266,11 +266,56 @@ class BashSession:
             sentinel = f"__OH_DONE__{uuid.uuid4()}"
             self.state.pending_sentinel = sentinel
 
-            # Print sentinel to stderr so stdout pipelines are minimally affected.
-            to_send = f'{to_send}; printf "{sentinel}" >&2'
+            # Add a sentinel, which is printed to stderr so stdout pipelines are minimally affected.
+            delimiter = self._select_delimiter_to_follow_command(to_send)
+            to_send = delimiter.join([to_send, f' printf "{sentinel}" >&2'])
+
             self.state.state = RunState.RUNNING
 
         return to_send
+
+    @staticmethod
+    def _select_delimiter_to_follow_command(command: str) -> str:
+        """Given a command, returns the delimiter that should follow it to start the next command.
+
+        Args:
+            command: The command to parse.
+
+        Returns:
+            The delimiter to use.
+        """
+        delimiter = ";"
+
+        try:
+            nodes = bashlex.parse(command)
+
+            if nodes:
+                # Find the end position of the last executable node
+                last_node = nodes[-1]
+
+                _, end_idx = last_node.pos
+
+                # Inspect everything after the last node (whitespace, separators, comments)
+                trailing_text = command[end_idx:]
+
+                if "#" in trailing_text:
+                    # Command ends with a comment; must use a newline to break it.
+                    delimiter = "\n"
+
+                elif ";" in trailing_text or "&" in trailing_text:
+                    # Command already implies a terminator/separator
+                    delimiter = ""
+            else:
+                # Empty command or just a comment
+                delimiter = "\n"
+
+        except bashlex.errors.ParsingError:
+            # Fallback: if bashlex fails, assume a formatting or syntax error.
+            # If the user provided broken syntax, bash will error anyway.
+            if command.strip().endswith(('&', ';')):
+                delimiter = ""
+
+        return delimiter
 
     def _capture_pane_or_error(self) -> str | ErrorObservation:
         """Capture pane contents or return an ErrorObservation on failure.
