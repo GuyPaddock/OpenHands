@@ -1,10 +1,8 @@
 import os
 import re
 import time
-import bashlex
-from typing import Optional, Any
+from typing import Optional
 
-from openhands.core.logger import openhands_logger as logger
 from openhands.events.action import CmdRunAction
 from openhands.events.observation import CmdOutputObservation, ErrorObservation
 from openhands.events.observation.commands import CmdOutputMetadata, CMD_OUTPUT_PS1_END
@@ -15,6 +13,7 @@ from .shell.session_state import SessionState, RunState
 from .shell.tmux_driver import TmuxDriver
 from .shell import prompt_detector
 from .shell import output_parser
+from .shell import input_parser
 
 
 class BashSession:
@@ -25,6 +24,7 @@ class BashSession:
     * :mod:`shell.tmux_driver` – raw tmux / pane IO
     * :mod:`shell.prompt_detector` – PS1 / metadata parsing
     * :mod:`shell.output_parser` – extracting command output
+    * :mod:`shell.input_parser` – command parsing and sanitization
 
     It exposes a single public method, :meth:`execute`, which takes a
     :class:`CmdRunAction` and returns either :class:`CmdOutputObservation`
@@ -60,150 +60,6 @@ class BashSession:
 
         self.state: SessionState = SessionState()
         self.tmux: Optional[TmuxDriver] = None
-
-    # ------------------------------------------------------------------ #
-    # Utility helpers
-    # ------------------------------------------------------------------ #
-
-    @staticmethod
-    def _parse_boolean(value: str) -> bool:
-        """Interpret typical environment-style boolean strings.
-
-        Accepted truthy values (case-insensitive):
-            "1", "true", "t", "yes", "y", "on"
-
-        Args:
-            value: Raw string value (e.g. from os.getenv).
-
-        Returns:
-            True if the value is considered truthy, otherwise False.
-        """
-        return value.lower() in ("1", "true", "t", "yes", "y", "on")
-
-    @staticmethod
-    def _is_special_key(command: str) -> bool:
-        """Check if the command is a special key, of the form C-<key>."""
-        return ((stripped_command := command.strip()) and
-                stripped_command.startswith('C-') and
-                len(stripped_command) == 3
-                and stripped_command[2].isalpha())
-
-    @staticmethod
-    def split_bash_commands(commands: str) -> list[str]:
-        """Parses and splits bash commands using bashlex."""
-        if not commands.strip():
-            return ['']
-        try:
-            parsed = bashlex.parse(commands)
-        except (bashlex.errors.ParsingError, NotImplementedError, TypeError, AttributeError):
-            logger.debug(
-                f'Failed to parse bash commands: {commands}. Returning original.', exc_info=True
-            )
-            return [commands]
-
-        result: list[str] = []
-        last_end = 0
-
-        for node in parsed:
-            start, end = node.pos
-            if start > last_end:
-                between = commands[last_end:start]
-                if result:
-                    result[-1] += between.rstrip()
-
-            command = commands[start:end].rstrip()
-            result.append(command)
-            last_end = end
-
-        remaining = commands[last_end:].rstrip()
-        if last_end < len(commands) and result:
-            result[-1] += remaining
-        elif remaining:
-            result.append(remaining)
-        return result
-
-    @staticmethod
-    def escape_bash_special_chars(command: str) -> str:
-        """Escapes characters that have different interpretations in bash vs python.
-
-        Commands pass through three distinct layers of interpretation, each of which might "eat"
-        special characters, particularly backslashes:
-            1. Python: Stores the command as a string.
-            2. Tmux: Receives the string via send-keys. Tmux has its own special characters (like ;
-               which separates Tmux commands).
-            3. Bash: Finally receives the keystrokes and interprets them.
-
-        Without this: If the user types ls \; (to escape a semicolon), Tmux or the transport layer
-        might consume the backslash. Bash would then receive ls ;, effectively running ls followed
-        by an empty command, rather than treating the semicolon as an argument.
-
-        With this: The code "escapes the escape," ensuring that the final Bash process receives the
-        literal backslash the user intended.
-        """
-        if command.strip() == '':
-            return ''
-
-        try:
-            parts = []
-            last_pos = 0
-
-            def visit_node(node: Any) -> None:
-                nonlocal last_pos
-                if (
-                    node.kind == 'redirect'
-                    and hasattr(node, 'heredoc')
-                    and node.heredoc is not None
-                ):
-                    between = command[last_pos: node.pos[0]]
-                    parts.append(between)
-                    parts.append(command[node.pos[0]: node.heredoc.pos[0]])
-                    parts.append(command[node.heredoc.pos[0]: node.heredoc.pos[1]])
-                    last_pos = node.pos[1]
-                    return
-
-                if node.kind == 'word':
-                    between = command[last_pos: node.pos[0]]
-                    word_text = command[node.pos[0]: node.pos[1]]
-
-                    between = re.sub(r'\\([;&|><])', r'\\\\\1', between)
-                    parts.append(between)
-
-                    if (
-                        (word_text.startswith('"') and word_text.endswith('"'))
-                        or (word_text.startswith("'") and word_text.endswith("'"))
-                        or (word_text.startswith('$(') and word_text.endswith(')'))
-                        or (word_text.startswith('`') and word_text.endswith('`'))
-                    ):
-                        parts.append(word_text)
-                    else:
-                        word_text = re.sub(r'\\([;&|><])', r'\\\\\1', word_text)
-                        parts.append(word_text)
-
-                    last_pos = node.pos[1]
-                    return
-
-                if hasattr(node, 'parts'):
-                    for part in node.parts:
-                        visit_node(part)
-
-            nodes = list(bashlex.parse(command))
-            for node in nodes:
-                between = command[last_pos: node.pos[0]]
-                between = re.sub(r'\\([;&|><])', r'\\\\\1', between)
-                parts.append(between)
-                last_pos = node.pos[0]
-                visit_node(node)
-
-            remaining = command[last_pos:]
-            parts.append(remaining)
-            return ''.join(parts)
-        except (bashlex.errors.ParsingError, NotImplementedError, TypeError):
-            logger.debug(f'Failed to escape bash command: {command}', exc_info=True)
-            return command
-
-    def _remove_command_prefix(self, command_output: str, command: str) -> str:
-        """Strip the echoed command from the output."""
-        return command_output.lstrip().removeprefix(command.lstrip()).lstrip()
 
     def _maybe_block_new_command(
         self,
@@ -254,7 +110,7 @@ class BashSession:
 
         if not action.is_input:
             # IMPORTANT: Escape special chars before sending to tmux.
-            to_send = self.escape_bash_special_chars(to_send)
+            to_send = input_parser.escape_bash_special_chars(to_send)
             self.state.state = RunState.RUNNING
 
         return to_send
@@ -280,17 +136,6 @@ class BashSession:
         # Track last output for potential higher-level diagnostics.
         self.state.last_output = pane
         return pane
-
-    def _get_active_pane_content(self, pane: str) -> str:
-        """Extract the content after the last prompt in the pane.
-
-        This is used for timeouts and interruptions where we want to see what's happened since the
-        last prompt (the current execution), but there is no 'new' prompt to mark the end yet.
-        """
-        prompts = prompt_detector.find_prompts(pane)
-
-        # If we have prompts, return everything after the *last* prompt.
-        return pane[prompts[-1].end():] if prompts else pane
 
     def _finalize_completed(
         self,
@@ -346,7 +191,7 @@ class BashSession:
         # Only specific usernames are allowed: the runtime user, "root",
         # or "openhands".
         if self.username is not None:
-            su_to_user = self._parse_boolean(os.getenv("SU_TO_USER", "true"))
+            su_to_user = input_parser.parse_boolean(os.getenv("SU_TO_USER", "true"))
             runtime_username = os.getenv("RUNTIME_USERNAME")
 
             if su_to_user and self.username in filter(
@@ -418,7 +263,7 @@ class BashSession:
             return blocked
 
         # Check for multiple commands using bashlex
-        split_cmds = self.split_bash_commands(command)
+        split_cmds = input_parser.split_bash_commands(command)
         if len(split_cmds) > 1:
             return ErrorObservation(
                 content=(
@@ -429,7 +274,7 @@ class BashSession:
             )
 
         # Special Key Path (C-c/C-d/C-z) for interactive commands
-        if action.is_input and self._is_special_key(command):
+        if action.is_input and input_parser.is_special_key(command):
             # Send the actual control keystroke; tmux interprets "C-c" as Ctrl-C.
             self.tmux.send_keys(command, enter=False)
             time.sleep(self.POLL_INTERVAL)
@@ -438,7 +283,7 @@ class BashSession:
             pane = self.tmux.capture()
 
             # Strip the PS1 prompt from the special key output
-            active_pane_content = self._get_active_pane_content(pane)
+            active_pane_content = output_parser.get_active_pane_content(pane)
 
             meta = CmdOutputMetadata()
             meta.suffix = (
@@ -571,14 +416,14 @@ class BashSession:
         else:
             # Multi-prompt case: stitch output between prompts using prompt_match
             # as the final anchor.
-            raw_output = self._extract_output_segments_using_prompt_match(
+            raw_output = output_parser.extract_output_using_prompt_match(
                 pane,
                 prompts,
                 prompt_match,
             )
 
         # Remove the echoed command from the output
-        cleaned_output = self._remove_command_prefix(raw_output, command)
+        cleaned_output = output_parser.remove_command_prefix(raw_output, command)
 
         # Apply exit-code and special key suffixes.
         self._apply_special_suffixes(command, meta)
@@ -591,8 +436,8 @@ class BashSession:
 
     def _handle_no_output(self, command: str, pane: str) -> CmdOutputObservation:
         # Strip the prompt and the echoed command for timeouts.
-        active_pane_content = self._get_active_pane_content(pane)
-        trimmed_content = self._remove_command_prefix(active_pane_content, command)
+        active_pane_content = output_parser.get_active_pane_content(pane)
+        trimmed_content = output_parser.remove_command_prefix(active_pane_content, command)
 
         meta = CmdOutputMetadata()
         meta.suffix = f"[No output for timeout. {TIMEOUT_MESSAGE_TEMPLATE}]"
@@ -600,48 +445,15 @@ class BashSession:
 
     def _handle_hard_timeout(self, command: str, pane: str, timeout: float) -> CmdOutputObservation:
         # Strip the prompt and the echoed command for timeouts.
-        active_pane_content = self._get_active_pane_content(pane)
-        trimmed_content = self._remove_command_prefix(active_pane_content, command)
+        active_pane_content = output_parser.get_active_pane_content(pane)
+        trimmed_content = output_parser.remove_command_prefix(active_pane_content, command)
 
         meta = CmdOutputMetadata()
         meta.suffix = f"[Command timed out after {timeout} seconds. {TIMEOUT_MESSAGE_TEMPLATE}]"
         return CmdOutputObservation(content=trimmed_content, command=command, metadata=meta)
 
-    @staticmethod
-    def _extract_output_segments_using_prompt_match(
-        pane: str,
-        prompts: list[re.Match[str]],
-        prompt_match: re.Match[str],
-    ) -> str:
-        """
-        Extract command output using prompt_match as the definitive delimiter.
-
-        Args:
-            pane: Entire pane content.
-            prompts: All detected prompt matches within the pane.
-            prompt_match: The specific prompt signaling command completion.
-
-        Returns:
-            A newline-joined string representing the command output.
-        """
-        segments: list[str] = []
-
-        for i, pr in enumerate(prompts):
-            if pr == prompt_match:
-                break
-
-            if i + 1 < len(prompts):
-                segment: str = pane[pr.end() + 1: prompts[i + 1].start()]
-                segments.append(segment)
-            else:
-                # No next prompt → end at the completion prompt.
-                segment = pane[pr.end() + 1: prompt_match.start()]
-                segments.append(segment)
-
-        return "\n".join(segments)
-
     def _apply_special_suffixes(self, command: str, meta: CmdOutputMetadata):
-        is_special_key = self._is_special_key(command)
+        is_special_key = input_parser.is_special_key(command)
 
         if hasattr(meta, "exit_code"):
             if is_special_key:
