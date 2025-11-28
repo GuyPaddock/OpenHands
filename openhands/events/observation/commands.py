@@ -9,10 +9,13 @@ from openhands.core.logger import openhands_logger as logger
 from openhands.core.schema import ObservationType
 from openhands.events.observation.observation import Observation
 
-CMD_OUTPUT_PS1_BEGIN = '\n###PS1JSON###\n'
-CMD_OUTPUT_PS1_END = '\n###PS1END###'
+# Clean constants without newlines for single-line usage
+CMD_OUTPUT_PS1_BEGIN = '###PS1JSON###'
+CMD_OUTPUT_PS1_END = '###PS1END###'
+
+# Regex updated to use clean constants directly
 CMD_OUTPUT_METADATA_PS1_REGEX = re.compile(
-    f'^{CMD_OUTPUT_PS1_BEGIN.strip()}(.*?){CMD_OUTPUT_PS1_END.strip()}',
+    f'{re.escape(CMD_OUTPUT_PS1_BEGIN)}(.*?){re.escape(CMD_OUTPUT_PS1_END)}',
     re.DOTALL | re.MULTILINE,
 )
 
@@ -36,8 +39,8 @@ class CmdOutputMetadata(BaseModel):
 
     @classmethod
     def to_ps1_prompt(cls) -> str:
-        """Convert the required metadata into a PS1 prompt."""
-        prompt = CMD_OUTPUT_PS1_BEGIN
+        """Convert the required metadata into a SINGLE-LINE PS1 prompt."""
+        # Use compact JSON (no indent, no spaces) to save tmux history
         json_str = json.dumps(
             {
                 'pid': '$!',
@@ -47,13 +50,15 @@ class CmdOutputMetadata(BaseModel):
                 'working_dir': r'$(pwd)',
                 'py_interpreter_path': r'$(which python 2>/dev/null || echo "")',
             },
-            indent=2,
+            separators=(',', ':')
         )
-        # Make sure we escape double quotes in the JSON string
-        # So that PS1 will keep them as part of the output
-        prompt += json_str.replace('"', r'\"')
-        prompt += CMD_OUTPUT_PS1_END + '\n'  # Ensure there's a newline at the end
-        return prompt
+
+        # We need to escape double quotes because this string will be wrapped
+        # in double quotes inside the PROMPT_COMMAND: PS1="{string}"
+        escaped_json = json_str.replace('"', r'\"')
+
+        # Return just the PS1 string value
+        return f"{CMD_OUTPUT_PS1_BEGIN}{escaped_json}{CMD_OUTPUT_PS1_END}"
 
     @classmethod
     def matches_ps1_metadata(cls, string: str) -> list[re.Match[str]]:
