@@ -5,6 +5,7 @@ import libtmux
 
 from openhands.core.logger import openhands_logger as logger
 
+
 class TmuxDriver:
     """Thin wrapper around tmux.
 
@@ -40,7 +41,6 @@ class TmuxDriver:
         self._session_name: Optional[str] = None
         self._current_ps1: Optional[str] = None
 
-
     def start(self) -> None:
         """Create and start Bash running in a new tmux server, session, window, and pane.
 
@@ -69,7 +69,7 @@ class TmuxDriver:
         assert keepalive_window is not None
 
         keepalive_window.rename_window("keepalive")
-        keepalive_pane = keepalive_window.attached_pane
+        keepalive_pane = keepalive_window.active_pane
 
         # Replace whatever shell tmux auto-launched with a persistent keepalive process.
         keepalive_pane.send_keys("exec tail -f /dev/null", enter=True)

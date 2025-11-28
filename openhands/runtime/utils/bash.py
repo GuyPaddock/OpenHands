@@ -2,8 +2,10 @@ import os
 import re
 import time
 import uuid
-from typing import Optional, cast
+import bashlex
+from typing import Optional, Any
 
+from openhands.core.logger import openhands_logger as logger
 from openhands.events.action import CmdRunAction
 from openhands.events.observation import CmdOutputObservation, ErrorObservation
 from openhands.events.observation.commands import CmdOutputMetadata
@@ -87,6 +89,123 @@ class BashSession:
                 len(stripped_command) == 3
                 and stripped_command[2].isalpha())
 
+    @staticmethod
+    def split_bash_commands(commands: str) -> list[str]:
+        """Parses and splits bash commands using bashlex."""
+        if not commands.strip():
+            return ['']
+        try:
+            parsed = bashlex.parse(commands)
+        except (bashlex.errors.ParsingError, NotImplementedError, TypeError, AttributeError):
+            logger.debug(
+                f'Failed to parse bash commands: {commands}. Returning original.', exc_info=True
+            )
+            return [commands]
+
+        result: list[str] = []
+        last_end = 0
+
+        for node in parsed:
+            start, end = node.pos
+            if start > last_end:
+                between = commands[last_end:start]
+                if result:
+                    result[-1] += between.rstrip()
+
+            command = commands[start:end].rstrip()
+            result.append(command)
+            last_end = end
+
+        remaining = commands[last_end:].rstrip()
+        if last_end < len(commands) and result:
+            result[-1] += remaining
+        elif remaining:
+            result.append(remaining)
+        return result
+
+    @staticmethod
+    def escape_bash_special_chars(command: str) -> str:
+        """Escapes characters that have different interpretations in bash vs python.
+
+        Commands pass through three distinct layers of interpretation, each of which might "eat"
+        special characters, particularly backslashes:
+            1. Python: Stores the command as a string.
+            2. Tmux: Receives the string via send-keys. Tmux has its own special characters (like ;
+               which separates Tmux commands).
+            3. Bash: Finally receives the keystrokes and interprets them.
+
+        Without this: If the user types ls \; (to escape a semicolon), Tmux or the transport layer
+        might consume the backslash. Bash would then receive ls ;, effectively running ls followed
+        by an empty command, rather than treating the semicolon as an argument.
+
+        With this: The code "escapes the escape," ensuring that the final Bash process receives the
+        literal backslash the user intended.
+        """
+        if command.strip() == '':
+            return ''
+
+        try:
+            parts = []
+            last_pos = 0
+
+            def visit_node(node: Any) -> None:
+                nonlocal last_pos
+                if (
+                    node.kind == 'redirect'
+                    and hasattr(node, 'heredoc')
+                    and node.heredoc is not None
+                ):
+                    between = command[last_pos: node.pos[0]]
+                    parts.append(between)
+                    parts.append(command[node.pos[0]: node.heredoc.pos[0]])
+                    parts.append(command[node.heredoc.pos[0]: node.heredoc.pos[1]])
+                    last_pos = node.pos[1]
+                    return
+
+                if node.kind == 'word':
+                    between = command[last_pos: node.pos[0]]
+                    word_text = command[node.pos[0]: node.pos[1]]
+
+                    between = re.sub(r'\\([;&|><])', r'\\\\\1', between)
+                    parts.append(between)
+
+                    if (
+                        (word_text.startswith('"') and word_text.endswith('"'))
+                        or (word_text.startswith("'") and word_text.endswith("'"))
+                        or (word_text.startswith('$(') and word_text.endswith(')'))
+                        or (word_text.startswith('`') and word_text.endswith('`'))
+                    ):
+                        parts.append(word_text)
+                    else:
+                        word_text = re.sub(r'\\([;&|><])', r'\\\\\1', word_text)
+                        parts.append(word_text)
+
+                    last_pos = node.pos[1]
+                    return
+
+                if hasattr(node, 'parts'):
+                    for part in node.parts:
+                        visit_node(part)
+
+            nodes = list(bashlex.parse(command))
+            for node in nodes:
+                between = command[last_pos: node.pos[0]]
+                between = re.sub(r'\\([;&|><])', r'\\\\\1', between)
+                parts.append(between)
+                last_pos = node.pos[0]
+                visit_node(node)
+
+            remaining = command[last_pos:]
+            parts.append(remaining)
+            return ''.join(parts)
+        except (bashlex.errors.ParsingError, NotImplementedError, TypeError):
+            logger.debug(f'Failed to escape bash command: {command}', exc_info=True)
+            return command
+
+    def _remove_command_prefix(self, command_output: str, command: str) -> str:
+        """Strip the echoed command from the output."""
+        return command_output.lstrip().removeprefix(command.lstrip()).lstrip()
+
     def _maybe_block_new_command(
         self,
         action: CmdRunAction,
@@ -141,10 +260,14 @@ class BashSession:
         to_send = command
 
         if not action.is_input:
+            # IMPORTANT: Escape special chars before sending to tmux.
+            to_send = self.escape_bash_special_chars(to_send)
+
             sentinel = f"__OH_DONE__{uuid.uuid4()}"
             self.state.pending_sentinel = sentinel
+
             # Print sentinel to stderr so stdout pipelines are minimally affected.
-            to_send = f'{command}; printf "{sentinel}" >&2'
+            to_send = f'{to_send}; printf "{sentinel}" >&2'
             self.state.state = RunState.RUNNING
 
         return to_send
@@ -184,23 +307,15 @@ class BashSession:
         self.state.pending_sentinel = None
         return obs
 
-    def _finalize_no_output(
-        self,
-        command: str,
-        pane: str,
-    ) -> CmdOutputObservation:
+    def _finalize_no_output(self, command: str, pane: str) -> CmdOutputObservation:
         """Run no-output handler and update state like the original loop."""
         obs = self._handle_no_output(command, pane)
         self.state.state = RunState.NO_OUTPUT_TIMEOUT
         self.state.pending_sentinel = None
         return obs
 
-    def _finalize_hard_timeout(
-        self,
-        command: str,
-        pane: str,
-        timeout: float,
-    ) -> CmdOutputObservation:
+    def _finalize_hard_timeout(self, command: str, pane: str,
+                               timeout: float) -> CmdOutputObservation:
         """Run hard-timeout handler and update state like the original loop."""
         obs = self._handle_hard_timeout(command, pane, timeout)
         self.state.state = RunState.HARD_TIMEOUT
@@ -311,9 +426,18 @@ class BashSession:
         if blocked is not None:
             return blocked
 
-        # --------------------------------------------------------------
-        # SPECIAL-KEY PATH (C-c/C-d/C-z) FOR INTERACTIVE INPUT
-        # --------------------------------------------------------------
+        # Check for multiple commands using bashlex
+        split_cmds = self.split_bash_commands(command)
+        if len(split_cmds) > 1:
+            return ErrorObservation(
+                content=(
+                    f'ERROR: Cannot execute multiple commands at once.\n'
+                    f'Please run each command separately OR chain them into a single command via && or ;\n'
+                    f'Provided commands:\n{"\n".join(f"({i + 1}) {cmd}" for i, cmd in enumerate(split_cmds))}'
+                )
+            )
+
+        # Special Key Path (C-c/C-d/C-z) for interactive commands
         if action.is_input and self._is_special_key(command):
             # Send the actual control keystroke; tmux interprets "C-c" as Ctrl-C.
             self.tmux.send_keys(command, enter=False)
@@ -342,7 +466,6 @@ class BashSession:
         # --------------------------------------------------------------
         # NORMAL PATH (non-special commands)
         # --------------------------------------------------------------
-        run_uuid: Optional[str] = self.state.last_prompt_uuid
         start: float = time.time()
         last_change: float = start
         initial_output: str = self.tmux.capture()
@@ -366,22 +489,21 @@ class BashSession:
             # ------------------------------------------------------------------
             # Completion via PS1 prompt (primary path)
             # ------------------------------------------------------------------
-            new_prompt = prompt_detector.new_prompt_after(run_uuid, pane)
-            prompts = prompt_detector.find_prompts(pane)
-
-            if new_prompt is not None:
-                return self._finalize_completed(command, pane, new_prompt)
+            if (
+                self.state.pending_sentinel is not None
+                and self.state.pending_sentinel in pane
+            ):
+                prompts = prompt_detector.find_prompts(pane)
+                if prompts:
+                    # If we found the sentinel, the last prompt is likely the one we want
+                    return self._finalize_completed(command, pane, prompts[-1])
 
             # ------------------------------------------------------------------
             # Completion via sentinel fallback (if the UUID heuristics fail)
             # ------------------------------------------------------------------
-            if (
-                self.state.pending_sentinel is not None
-                and self.state.pending_sentinel in pane
-                and prompts
-            ):
-                fallback_prompt = prompts[-1]
-                return self._finalize_completed(command, pane, fallback_prompt)
+            new_prompt = prompt_detector.detect_new_prompt(initial_output, pane)
+            if new_prompt is not None:
+                return self._finalize_completed(command, pane, new_prompt)
 
             # ------------------------------------------------------------------
             # No-output timeout for non-blocking actions
@@ -435,18 +557,17 @@ class BashSession:
             command output and extracted metadata.
         """
 
-        # 1. Build metadata from the specific prompt.
+        # Build metadata from the specific prompt.
         meta: CmdOutputMetadata = CmdOutputMetadata.from_ps1_match(prompt_match)
 
-        # Update state with metadata-derived values.
-        self.state.last_prompt_uuid = meta.uuid
+        # Store the current working directory.
         if getattr(meta, "working_dir", None):
             self.state.cwd = meta.working_dir
 
-        # 2. Find all prompts for context.
+        # Find all prompts for context.
         prompts: list[re.Match[str]] = prompt_detector.find_prompts(pane)
 
-        # 3. Check truncation: only this prompt is visible.
+        # Check truncation: only this prompt is visible.
         only_prompt_visible: bool = (len(prompts) == 1 and prompts[0] == prompt_match)
 
         if only_prompt_visible:
@@ -468,51 +589,31 @@ class BashSession:
                 prompt_match,
             )
 
-        # 4. Apply exit-code and special key suffixes.
+        # Remove the echoed command from the output
+        cleaned_output = self._remove_command_prefix(raw_output, command)
+
+        # Apply exit-code and special key suffixes.
         self._apply_special_suffixes(command, meta)
 
-        # 5. Finalize.
         return self._finalize_successful_completion(
             command,
-            raw_output,
+            cleaned_output,
             meta,
         )
 
     @staticmethod
-    def _handle_no_output(
-        command: str,
-        pane: str,
-    ) -> CmdOutputObservation:
+    def _handle_no_output(command: str, pane: str) -> CmdOutputObservation:
         """Return an observation for a no-output timeout."""
         meta = CmdOutputMetadata()
         meta.suffix = f"[No output for timeout. {TIMEOUT_MESSAGE_TEMPLATE}]"
-        return CmdOutputObservation(
-            content=pane,
-            command=command,
-            metadata=meta,
-        )
+        return CmdOutputObservation(content=pane, command=command, metadata=meta)
 
     @staticmethod
-    def _handle_hard_timeout(
-        command: str,
-        pane: str,
-        timeout: float,
-    ) -> CmdOutputObservation:
+    def _handle_hard_timeout(command: str, pane: str, timeout: float) -> CmdOutputObservation:
         """Return an observation for a hard timeout."""
         meta = CmdOutputMetadata()
-        meta.suffix = (
-            f"[Command timed out after {timeout} seconds. "
-            f"{TIMEOUT_MESSAGE_TEMPLATE}]"
-        )
-        return CmdOutputObservation(
-            content=pane,
-            command=command,
-            metadata=meta,
-        )
-
-    # --------------------------------------------------------------- #
-    # Supporting methods for completion
-    # --------------------------------------------------------------- #
+        meta.suffix = f"[Command timed out after {timeout} seconds. {TIMEOUT_MESSAGE_TEMPLATE}]"
+        return CmdOutputObservation(content=pane, command=command, metadata=meta)
 
     @staticmethod
     def _extract_output_segments_using_prompt_match(

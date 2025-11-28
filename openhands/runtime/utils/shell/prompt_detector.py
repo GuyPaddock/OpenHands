@@ -10,27 +10,19 @@ def find_prompts(pane_output: str) -> List[re.Match]:
     return CmdOutputMetadata.matches_ps1_metadata(pane_output)
 
 
-def new_prompt_after(
-    run_uuid: Optional[str],
-    pane_output: str,
+def detect_new_prompt(
+    initial_output: str,
+    current_output: str,
 ) -> Optional[Match[str]]:
-    """Return the first prompt whose UUID differs from ``run_uuid``.
+    """Return a prompt if a new one has appeared compared to the initial state.
 
-    Args:
-        run_uuid: UUID of the prompt that was active before the current
-            command was issued. ``None`` means *any* prompt is acceptable.
-        pane_output: Full string capture of the tmux pane.
-
-    Returns:
-        A regular-expression match object for the newly detected prompt,
-        or ``None`` if no new prompt can be identified yet.
+    This replaces the UUID-based logic which caused crashes.
     """
-    matches = CmdOutputMetadata.matches_ps1_metadata(pane_output)
+    initial_matches = find_prompts(initial_output)
+    current_matches = find_prompts(current_output)
 
-    for match in matches:
-        meta = CmdOutputMetadata.from_ps1_match(match)
-
-        if run_uuid is None or meta.uuid != run_uuid:
-            return match
+    # If we have more prompts than before, the last one is likely the new one
+    if len(current_matches) > len(initial_matches):
+        return current_matches[-1]
 
     return None
