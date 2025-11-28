@@ -281,6 +281,17 @@ class BashSession:
         self.state.last_output = pane
         return pane
 
+    def _get_active_pane_content(self, pane: str) -> str:
+        """Extract the content after the last prompt in the pane.
+
+        This is used for timeouts and interruptions where we want to see what's happened since the
+        last prompt (the current execution), but there is no 'new' prompt to mark the end yet.
+        """
+        prompts = prompt_detector.find_prompts(pane)
+
+        # If we have prompts, return everything after the *last* prompt.
+        return pane[prompts[-1].end():] if prompts else pane
+
     def _finalize_completed(
         self,
         command: str,
@@ -425,6 +436,10 @@ class BashSession:
 
             # Synthesize a completion, even if no prompt/sentinel is visible.
             pane = self.tmux.capture()
+
+            # Strip the PS1 prompt from the special key output
+            active_pane_content = self._get_active_pane_content(pane)
+
             meta = CmdOutputMetadata()
             meta.suffix = (
                 f"[CTRL-{command[-1].upper()} sent. "
@@ -434,10 +449,8 @@ class BashSession:
             # Reset session state so new commands are allowed.
             self.state.state = RunState.COMPLETED
 
-            # Treat the entire pane as content; higher layers can decide
-            # how to surface this.
             return CmdOutputObservation(
-                content=pane.rstrip(),
+                content=active_pane_content.rstrip(),
                 command=command,
                 metadata=meta,
             )
@@ -576,19 +589,23 @@ class BashSession:
             meta,
         )
 
-    @staticmethod
-    def _handle_no_output(command: str, pane: str) -> CmdOutputObservation:
-        """Return an observation for a no-output timeout."""
+    def _handle_no_output(self, command: str, pane: str) -> CmdOutputObservation:
+        # Strip the prompt and the echoed command for timeouts.
+        active_pane_content = self._get_active_pane_content(pane)
+        trimmed_content = self._remove_command_prefix(active_pane_content, command)
+
         meta = CmdOutputMetadata()
         meta.suffix = f"[No output for timeout. {TIMEOUT_MESSAGE_TEMPLATE}]"
-        return CmdOutputObservation(content=pane, command=command, metadata=meta)
+        return CmdOutputObservation(content=trimmed_content, command=command, metadata=meta)
 
-    @staticmethod
-    def _handle_hard_timeout(command: str, pane: str, timeout: float) -> CmdOutputObservation:
-        """Return an observation for a hard timeout."""
+    def _handle_hard_timeout(self, command: str, pane: str, timeout: float) -> CmdOutputObservation:
+        # Strip the prompt and the echoed command for timeouts.
+        active_pane_content = self._get_active_pane_content(pane)
+        trimmed_content = self._remove_command_prefix(active_pane_content, command)
+
         meta = CmdOutputMetadata()
         meta.suffix = f"[Command timed out after {timeout} seconds. {TIMEOUT_MESSAGE_TEMPLATE}]"
-        return CmdOutputObservation(content=pane, command=command, metadata=meta)
+        return CmdOutputObservation(content=trimmed_content, command=command, metadata=meta)
 
     @staticmethod
     def _extract_output_segments_using_prompt_match(
