@@ -1,14 +1,13 @@
 import os
 import re
 import time
-import uuid
 import bashlex
 from typing import Optional, Any
 
 from openhands.core.logger import openhands_logger as logger
 from openhands.events.action import CmdRunAction
 from openhands.events.observation import CmdOutputObservation, ErrorObservation
-from openhands.events.observation.commands import CmdOutputMetadata
+from openhands.events.observation.commands import CmdOutputMetadata, CMD_OUTPUT_PS1_END
 from openhands.runtime.utils.bash_constants import TIMEOUT_MESSAGE_TEMPLATE
 from openhands.utils.shutdown_listener import should_continue
 
@@ -242,13 +241,7 @@ class BashSession:
         command: str,
         action: CmdRunAction,
     ) -> str:
-        """Append completion sentinel for full commands and update state.
-
-        Semantics:
-        - Interactive input (is_input=True) is sent as-is.
-        - Non-input commands get a unique stderr sentinel appended.
-        - Sets SessionState.state to RUNNING for non-input commands.
-        - Stores pending_sentinel so the fallback path can detect it.
+        """Preprocess a command before it's sent to tmux.
 
         Args:
             command: Original command string.
@@ -262,60 +255,9 @@ class BashSession:
         if not action.is_input:
             # IMPORTANT: Escape special chars before sending to tmux.
             to_send = self.escape_bash_special_chars(to_send)
-
-            sentinel = f"__OH_DONE__{uuid.uuid4()}"
-            self.state.pending_sentinel = sentinel
-
-            # Add a sentinel, which is printed to stderr so stdout pipelines are minimally affected.
-            delimiter = self._select_delimiter_to_follow_command(to_send)
-            to_send = delimiter.join([to_send, f' printf "{sentinel}" >&2'])
-
             self.state.state = RunState.RUNNING
 
         return to_send
-
-    @staticmethod
-    def _select_delimiter_to_follow_command(command: str) -> str:
-        """Given a command, returns the delimiter that should follow it to start the next command.
-
-        Args:
-            command: The command to parse.
-
-        Returns:
-            The delimiter to use.
-        """
-        delimiter = ";"
-
-        try:
-            nodes = bashlex.parse(command)
-
-            if nodes:
-                # Find the end position of the last executable node
-                last_node = nodes[-1]
-
-                _, end_idx = last_node.pos
-
-                # Inspect everything after the last node (whitespace, separators, comments)
-                trailing_text = command[end_idx:]
-
-                if "#" in trailing_text:
-                    # Command ends with a comment; must use a newline to break it.
-                    delimiter = "\n"
-
-                elif ";" in trailing_text or "&" in trailing_text:
-                    # Command already implies a terminator/separator
-                    delimiter = ""
-            else:
-                # Empty command or just a comment
-                delimiter = "\n"
-
-        except bashlex.errors.ParsingError:
-            # Fallback: if bashlex fails, assume a formatting or syntax error.
-            # If the user provided broken syntax, bash will error anyway.
-            if command.strip().endswith(('&', ';')):
-                delimiter = ""
-
-        return delimiter
 
     def _capture_pane_or_error(self) -> str | ErrorObservation:
         """Capture pane contents or return an ErrorObservation on failure.
@@ -331,7 +273,6 @@ class BashSession:
             pane: str = self.tmux.capture()
         except Exception as exc:  # tmux/session failure
             self.state.state = RunState.IDLE
-            self.state.pending_sentinel = None
             return ErrorObservation(
                 content=f"Bash session became unresponsive. Error: {exc}"
             )
@@ -349,14 +290,12 @@ class BashSession:
         """Run completion handler and update state like the original loop."""
         obs = self._handle_completed(command, pane, prompt_match)
         self.state.state = RunState.COMPLETED
-        self.state.pending_sentinel = None
         return obs
 
     def _finalize_no_output(self, command: str, pane: str) -> CmdOutputObservation:
         """Run no-output handler and update state like the original loop."""
         obs = self._handle_no_output(command, pane)
         self.state.state = RunState.NO_OUTPUT_TIMEOUT
-        self.state.pending_sentinel = None
         return obs
 
     def _finalize_hard_timeout(self, command: str, pane: str,
@@ -364,7 +303,6 @@ class BashSession:
         """Run hard-timeout handler and update state like the original loop."""
         obs = self._handle_hard_timeout(command, pane, timeout)
         self.state.state = RunState.HARD_TIMEOUT
-        self.state.pending_sentinel = None
         return obs
 
     # ------------------------------------------------------------------ #
@@ -381,7 +319,7 @@ class BashSession:
         return self.state.cwd
 
     def initialize(self) -> None:
-        """Start tmux + bash and configure a deterministic prompt.
+        """Start tmux and bash and configure a deterministic prompt.
 
         If `username` is set and SU_TO_USER / RUNTIME_USERNAME conditions
         are satisfied, we will launch a login shell using `su <username> -`.
@@ -416,17 +354,14 @@ class BashSession:
 
         self.state.state = RunState.IDLE
         self.state.cwd = self.work_dir
-        self.state.last_prompt_uuid = None
-        self.state.pending_sentinel = None
 
     def close(self) -> None:
-        """Terminate tmux session and attempt zombie cleanup."""
+        """Terminate tmux session."""
         if self.tmux is not None:
             self.tmux.kill()
             self.tmux = None
 
         self.state.state = RunState.IDLE
-        self.state.pending_sentinel = None
 
     # ------------------------------------------------------------------ #
     # Main API
@@ -498,7 +433,6 @@ class BashSession:
 
             # Reset session state so new commands are allowed.
             self.state.state = RunState.COMPLETED
-            self.state.pending_sentinel = None
 
             # Treat the entire pane as content; higher layers can decide
             # how to surface this.
@@ -513,9 +447,12 @@ class BashSession:
         # --------------------------------------------------------------
         start: float = time.time()
         last_change: float = start
-        initial_output: str = self.tmux.capture()
 
-        # Append completion sentinel for full commands and update state.
+        # Snapshot state BEFORE sending command
+        initial_output: str = self.tmux.capture()
+        initial_prompts = prompt_detector.find_prompts(initial_output)
+        initial_prompt_count = len(initial_prompts)
+
         to_send: str = self._prepare_command_for_execution(command, action)
 
         # Actually send the command / input to the pane.
@@ -531,28 +468,23 @@ class BashSession:
             pane: str = pane_or_error
             now: float = time.time()
 
-            # ------------------------------------------------------------------
-            # Completion via PS1 prompt (primary path)
-            # ------------------------------------------------------------------
-            if (
-                self.state.pending_sentinel is not None
-                and self.state.pending_sentinel in pane
-            ):
-                prompts = prompt_detector.find_prompts(pane)
-                if prompts:
-                    # If we found the sentinel, the last prompt is likely the one we want
-                    return self._finalize_completed(command, pane, prompts[-1])
+            current_prompts = prompt_detector.find_prompts(pane)
+            current_prompt_count = len(current_prompts)
 
-            # ------------------------------------------------------------------
-            # Completion via sentinel fallback (if the UUID heuristics fail)
-            # ------------------------------------------------------------------
-            new_prompt = prompt_detector.detect_new_prompt(initial_output, pane)
-            if new_prompt is not None:
-                return self._finalize_completed(command, pane, new_prompt)
+            # COMPLETION CHECK 1: The number of prompts increased.
+            # This is the standard signal that a command finished.
+            if current_prompt_count > initial_prompt_count:
+                return self._finalize_completed(command, pane, current_prompts[-1])
 
-            # ------------------------------------------------------------------
-            # No-output timeout for non-blocking actions
-            # ------------------------------------------------------------------
+            # COMPLETION CHECK 2: The output ends with the PS1 marker.
+            # This handles cases where text scrolled off the top (so count didn't increase)
+            # but we are definitely sitting at a prompt.
+            if pane.rstrip().endswith(CMD_OUTPUT_PS1_END.rstrip()):
+                # If we have any prompts visible, the last one is the active one
+                if current_prompts:
+                    return self._finalize_completed(command, pane, current_prompts[-1])
+
+            # Timeout Logic
             if pane != initial_output:
                 last_change = now
                 initial_output = pane
@@ -563,9 +495,7 @@ class BashSession:
             ):
                 return self._finalize_no_output(command, pane)
 
-            # ------------------------------------------------------------------
             # Hard timeout regardless of blocking mode
-            # ------------------------------------------------------------------
             if action.timeout and (now - start) > float(action.timeout):
                 return self._finalize_hard_timeout(
                     command, pane, float(action.timeout)
@@ -575,7 +505,7 @@ class BashSession:
 
         # Shutdown listener requested stop.
         self.state.state = RunState.IDLE
-        self.state.pending_sentinel = None
+
         return ErrorObservation(content="Session interrupted.")
 
     # ------------------------------------------------------------------ #
@@ -716,7 +646,6 @@ class BashSession:
             self.tmux.clear()
 
         self.state.state = RunState.COMPLETED
-        self.state.pending_sentinel = None
 
         return CmdOutputObservation(
             content=output.rstrip(),
