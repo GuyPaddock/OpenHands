@@ -41,6 +41,10 @@ class TmuxDriver:
         self._session_name: Optional[str] = None
         self._current_ps1: Optional[str] = None
 
+    def __del__(self) -> None:
+        """Ensure the tmux session is cleaned up when the object is destroyed."""
+        self.kill()
+
     def start(self) -> None:
         """Create and start Bash running in a new tmux server, session, window, and pane.
 
