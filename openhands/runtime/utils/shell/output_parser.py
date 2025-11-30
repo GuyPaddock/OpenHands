@@ -10,14 +10,11 @@ def remove_command_prefix(command_output: str, command: str) -> str:
 
 
 def get_active_pane_content(pane: str) -> str:
-    """Extract the content after the last prompt in the pane.
-
-    This is used for timeouts and interruptions where we want to see what's happened since the
-    last prompt (the current execution), but there is no 'new' prompt to mark the end yet.
-    """
+    """Extract the content after the last prompt in the pane."""
     prompts = prompt_detector.find_prompts(pane)
 
     # If we have prompts, return everything after the *last* prompt.
+    # FIX: Use end() directly, do not add +1
     return pane[prompts[-1].end():] if prompts else pane
 
 
@@ -27,37 +24,30 @@ def extract_output_using_prompt_match(
     prompt_match: re.Match,
 ) -> str:
     """
-    Extract command output using prompt_match as the definitive delimiter.
+    Extracts and stitches together command output segments between prompts.
 
-    The typical layout of a pane is::
-
-        PS1(metadata)\n
-        <command echo + output>\n
-        PS1(metadata)\n
-
-    This helper stitches together all text that lies *after* each prompt
-    and *before* the next prompt.
+    This iterates through all found prompts in the pane. For each prompt
+    preceding the `prompt_match`, it extracts the text immediately following
+    it up to the start of the next prompt (or the `prompt_match` itself).
 
     Args:
-        pane: Entire pane content.
-        prompts: All detected prompt matches within the pane.
-        prompt_match: The specific prompt signaling command completion.
+        pane: The raw text content of the tmux pane.
+        prompts: A list of all prompt matches found in the pane.
+        prompt_match: The specific prompt match indicating the command's completion.
 
     Returns:
-        A newline-joined string representing the command output.
+        str: The consolidated output text found between the prompts.
     """
     segments: List[str] = []
 
-    for i, pr in enumerate(prompts):
-        if pr == prompt_match:
+    for index, prompt in enumerate(prompts):
+        if prompt == prompt_match:
             break
 
-        if i + 1 < len(prompts):
-            segment: str = pane[pr.end() + 1: prompts[i + 1].start()]
-            segments.append(segment)
-        else:
-            # No next prompt → end at the completion prompt.
-            segment = pane[pr.end() + 1: prompt_match.start()]
-            segments.append(segment)
+        # Determine the end of the current segment:
+        # If there is a next prompt in the list, stop there.
+        # Otherwise (edge case), stop at the target prompt_match start.
+        end_prompt = prompts[index + 1] if (index + 1 < len(prompts)) else prompt_match
+        segments.append(pane[prompt.end(): end_prompt.start()])
 
     return "\n".join(segments)
