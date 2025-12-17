@@ -12,10 +12,9 @@ from openhands.events.action import (
     BrowseInteractiveAction,
     CmdRunAction,
     FileEditAction,
-    FileReadAction,
     IPythonRunCellAction,
 )
-from openhands.events.event import FileEditSource, FileReadSource
+from openhands.events.event import FileEditSource
 
 
 def create_mock_response(function_name: str, arguments: dict) -> ModelResponse:
@@ -145,56 +144,30 @@ def test_edit_file_missing_required():
     with pytest.raises(FunctionCallValidationError) as exc_info:
         response_to_actions(response)
     assert 'Missing required argument "content"' in str(exc_info.value)
-
-
-def test_str_replace_editor_valid():
-    """Test str_replace_editor with valid arguments."""
-    # Test view command
+def test_apply_patch_valid():
+    """Test apply_patch command construction."""
+    patch_text = """*** Begin Patch
+*** Patch-ID: demo
+*** Add File: foo.txt
+hello
+*** End Patch"""
     response = create_mock_response(
-        'str_replace_editor',
-        {'command': 'view', 'path': '/path/to/file', 'security_risk': 'LOW'},
+        'apply_patch', {'patch': patch_text, 'security_risk': 'LOW'}
     )
     actions = response_to_actions(response)
     assert len(actions) == 1
-    assert isinstance(actions[0], FileReadAction)
-    assert actions[0].path == '/path/to/file'
-    assert actions[0].impl_source == FileReadSource.OH_ACI
-
-    # Test other commands
-    response = create_mock_response(
-        'str_replace_editor',
-        {
-            'command': 'str_replace',
-            'path': '/path/to/file',
-            'old_str': 'old',
-            'new_str': 'new',
-            'security_risk': 'LOW',
-        },
-    )
-    actions = response_to_actions(response)
-    assert len(actions) == 1
-    assert isinstance(actions[0], FileEditAction)
-    assert actions[0].path == '/path/to/file'
-    assert actions[0].impl_source == FileEditSource.OH_ACI
+    assert isinstance(actions[0], CmdRunAction)
+    assert "APPLY_PATCH_JSON=1 python -m openhands.utils.apply_patch" in actions[0].command
+    assert 'Patch-ID: demo' in actions[0].command
+    assert actions[0].command.rstrip().endswith('PATCH')
 
 
-def test_str_replace_editor_missing_required():
-    """Test str_replace_editor with missing required arguments."""
-    # Missing command
-    response = create_mock_response(
-        'str_replace_editor', {'path': '/path/to/file', 'security_risk': 'LOW'}
-    )
+def test_apply_patch_missing_required():
+    """Test apply_patch with missing patch payload."""
+    response = create_mock_response('apply_patch', {'security_risk': 'LOW'})
     with pytest.raises(FunctionCallValidationError) as exc_info:
         response_to_actions(response)
-    assert 'Missing required argument "command"' in str(exc_info.value)
-
-    # Missing path
-    response = create_mock_response(
-        'str_replace_editor', {'command': 'view', 'security_risk': 'LOW'}
-    )
-    with pytest.raises(FunctionCallValidationError) as exc_info:
-        response_to_actions(response)
-    assert 'Missing required argument "path"' in str(exc_info.value)
+    assert 'Missing required argument "patch"' in str(exc_info.value)
 
 
 def test_browser_valid():
@@ -247,28 +220,3 @@ def test_invalid_json_arguments():
     assert 'Failed to parse tool call arguments' in str(exc_info.value)
 
 
-def test_unexpected_argument_handling():
-    """Test that unexpected arguments in function calls are properly handled.
-
-    This test reproduces issue #8369 Example 4 where an unexpected argument
-    (old_str_prefix) causes a TypeError.
-    """
-    response = create_mock_response(
-        'str_replace_editor',
-        {
-            'command': 'str_replace',
-            'path': '/test/file.py',
-            'old_str': 'def test():\n    pass',
-            'new_str': 'def test():\n    return True',
-            'old_str_prefix': 'some prefix',  # Unexpected argument
-            'security_risk': 'LOW',
-        },
-    )
-
-    # Test that the function raises a FunctionCallValidationError
-    with pytest.raises(FunctionCallValidationError) as exc_info:
-        response_to_actions(response)
-
-    # Verify the error message mentions the unexpected argument
-    assert 'old_str_prefix' in str(exc_info.value)
-    assert 'Unexpected argument' in str(exc_info.value)

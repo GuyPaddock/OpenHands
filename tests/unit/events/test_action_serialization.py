@@ -327,7 +327,7 @@ def test_file_ohaci_edit_action_legacy_serialization():
             'content': '',
             'start': 1,
             'end': -1,
-            'thought': "I'll help you create a simple 2048 game in Python. I'll use the str_replace_editor to create the file.",
+            'thought': "I'll help you create a simple 2048 game in Python. I'll use the apply_patch to create the file.",
             'impl_source': 'oh_aci',
             'translated_ipython_code': "print(file_editor(**{'command': 'create', 'path': '/workspace/game_2048.py', 'file_text': 'New file content'}))",
         },
@@ -340,7 +340,7 @@ def test_file_ohaci_edit_action_legacy_serialization():
     assert event.path == '/workspace/game_2048.py'
     assert (
         event.thought
-        == "I'll help you create a simple 2048 game in Python. I'll use the str_replace_editor to create the file."
+        == "I'll help you create a simple 2048 game in Python. I'll use the apply_patch to create the file."
     )
     assert event.impl_source == FileEditSource.OH_ACI
     assert not hasattr(event, 'translated_ipython_code')
@@ -365,7 +365,7 @@ def test_file_ohaci_edit_action_legacy_serialization():
     assert event_dict['args']['impl_source'] == 'oh_aci'
     assert (
         event_dict['args']['thought']
-        == "I'll help you create a simple 2048 game in Python. I'll use the str_replace_editor to create the file."
+        == "I'll help you create a simple 2048 game in Python. I'll use the apply_patch to create the file."
     )
 
     # OH_ACI arguments

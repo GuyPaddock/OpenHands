@@ -11,7 +11,7 @@ The CodeAct agent operates through a function calling interface. At each turn, t
    - Execute Linux `bash` commands with `execute_bash`
    - Run Python code in an [IPython](https://ipython.org/) environment with `execute_ipython_cell`
    - Interact with web browsers using `browser` and `fetch`
-   - Edit files using `str_replace_editor` or `edit_file`
+   - Edit files using `apply_patch` or `edit_file`
 
 ![image](https://github.com/OpenHands/OpenHands/assets/38853559/92b622e3-72ad-4a61-8f41-8c040b6d5fb3)
 
@@ -37,7 +37,7 @@ The agent provides several built-in tools:
 - Supports common browser actions like navigation, clicking, form filling, scrolling
 - Handles file uploads and drag-and-drop operations
 
-### 4. `str_replace_editor`
+### 4. `apply_patch`
 - View, create and edit files through string replacement
 - Persistent state across command calls
 - File viewing with line numbers

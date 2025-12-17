@@ -243,7 +243,7 @@ enable_browsing = true
 # Whether the LLM draft editor is enabled
 enable_llm_editor = false
 
-# Whether the standard editor tool (str_replace_editor) is enabled
+# Whether the standard editor tool (apply_patch) is enabled
 # Only has an effect if enable_llm_editor is False
 enable_editor = true
 
