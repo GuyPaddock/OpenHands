@@ -44,78 +44,56 @@ FNCALL_TOOLS: list[ChatCompletionToolParam] = [
             'description': 'Finish the interaction when the task is complete OR if the assistant cannot proceed further with the task.',
         },
     },
+
     {
         'type': 'function',
         'function': {
             'name': 'apply_patch',
-            'description': 'Custom editing tool for viewing, creating and editing files\n* State is persistent across command calls and discussions with the user\n* If `path` is a file, `view` displays the result of applying `cat -n`. If `path` is a directory, `view` lists non-hidden files and directories up to 2 levels deep\n* The `create` command cannot be used if the specified `path` already exists as a file\n* If a `command` generates a long output, it will be truncated and marked with `<response clipped>`\n* The `undo_edit` command will revert the last edit made to the file at `path`\n\nNotes for using the `str_replace` command:\n* The `old_str` parameter should match EXACTLY one or more consecutive lines from the original file. Be mindful of whitespaces!\n* If the `old_str` parameter is not unique in the file, the replacement will not be performed. Make sure to include enough context in `old_str` to make it unique\n* The `new_str` parameter should contain the edited lines that should replace the `old_str`\n',
+            'description': 'Apply a unified diff patch to create, update, or delete files. Provide the full patch payload between *** Begin Patch and *** End Patch markers.',
             'parameters': {
                 'type': 'object',
                 'properties': {
-                    'command': {
-                        'description': 'The commands to run. Allowed options are: `view`, `create`, `str_replace`, `insert`, `undo_edit`.',
-                        'enum': [
-                            'view',
-                            'create',
-                            'str_replace',
-                            'insert',
-                            'undo_edit',
-                        ],
+                    'patch': {
                         'type': 'string',
+                        'description': 'Full patch content including the *** Begin Patch/End Patch markers.',
                     },
-                    'path': {
-                        'description': 'Absolute path to file or directory, e.g. `/repo/file.py` or `/repo`.',
+                    'security_risk': {
                         'type': 'string',
-                    },
-                    'file_text': {
-                        'description': 'Required parameter of `create` command, with the content of the file to be created.',
-                        'type': 'string',
-                    },
-                    'old_str': {
-                        'description': 'Required parameter of `str_replace` command containing the string in `path` to replace.',
-                        'type': 'string',
-                    },
-                    'new_str': {
-                        'description': 'Optional parameter of `str_replace` command containing the new string (if not given, no string will be added). Required parameter of `insert` command containing the string to insert.',
-                        'type': 'string',
-                    },
-                    'insert_line': {
-                        'description': 'Required parameter of `insert` command. The `new_str` will be inserted AFTER the line `insert_line` of `path`.',
-                        'type': 'integer',
-                    },
-                    'view_range': {
-                        'description': 'Optional parameter of `view` command when `path` points to a file. If none is given, the full file is shown. If provided, the file will be shown in the indicated line number range, e.g. [11, 12] will show lines 11 and 12. Indexing at 1 to start. Setting `[start_line, -1]` shows all lines from `start_line` to the end of the file.',
-                        'items': {'type': 'integer'},
-                        'type': 'array',
+                        'enum': ['LOW', 'MEDIUM', 'HIGH'],
+                        'description': "The LLM's assessment of the safety risk.",
                     },
                 },
-                'required': ['command', 'path'],
+                'required': ['patch', 'security_risk'],
             },
         },
     },
 ]
 
 
-def test_malformed_parameter_parsing_recovery():
-    """Ensure we can recover when models emit malformed parameter tags like <parameter=command=str_replace</parameter>.
 
-    This simulates a tool call to apply_patch where the 'command' parameter is malformed.
+
+
+
+
+def test_malformed_parameter_parsing_recovery():
+    """Ensure we can recover when models emit malformed parameter tags like <parameter=patch=...>.
+
+    This simulates a tool call to apply_patch where the 'patch' parameter tag is malformed but should still be parsed.
     """
     from openhands.llm.fn_call_converter import (
         convert_non_fncall_messages_to_fncall_messages,
     )
 
-    # Construct an assistant message with malformed parameter tag for 'command'
     assistant_message = {
         'role': 'assistant',
-        'content': (
-            '<function=apply_patch>\n'
-            '<parameter=command=str_replace</parameter>\n'  # malformed form
-            '<parameter=path>/repo/app.py</parameter>\n'
-            '<parameter=old_str>foo</parameter>\n'
-            '<parameter=new_str>bar</parameter>\n'
-            '</function>'
-        ),
+        'content': """<function=apply_patch>
+<parameter=patch=*** Begin Patch
+*** Patch-ID: malformed
+*** Add File: /repo/app.py
+hello
+*** End Patch</parameter>
+<parameter=security_risk>LOW</parameter>
+</function>""",
     }
 
     messages = [
@@ -126,7 +104,6 @@ def test_malformed_parameter_parsing_recovery():
 
     converted = convert_non_fncall_messages_to_fncall_messages(messages, FNCALL_TOOLS)
 
-    # The last message should be assistant with a parsed tool call
     last = converted[-1]
     assert last['role'] == 'assistant'
     assert 'tool_calls' in last and len(last['tool_calls']) == 1
@@ -134,59 +111,19 @@ def test_malformed_parameter_parsing_recovery():
     assert tool_call['type'] == 'function'
     assert tool_call['function']['name'] == 'apply_patch'
 
-    # Arguments must be a valid JSON with command=str_replace and proper params
     args = json.loads(tool_call['function']['arguments'])
-    assert args['command'] == 'str_replace'
-    assert args['path'] == '/repo/app.py'
-    assert args['old_str'] == 'foo'
-    assert args['new_str'] == 'bar'
+    assert '*** Begin Patch' in args['patch']
+    assert args['security_risk'] == 'LOW'
+
 
 
 def test_convert_tools_to_description():
     formatted_tools = convert_tools_to_description(FNCALL_TOOLS)
-    print(formatted_tools)
-    assert (
-        formatted_tools.strip()
-        == """---- BEGIN FUNCTION #1: execute_bash ----
-Description: Execute a bash command in the terminal.
-* Long running commands: For commands that may run indefinitely, it should be run in the background and the output should be redirected to a file, e.g. command = `python3 app.py > server.log 2>&1 &`.
-* Interactive: If a bash command returns exit code `-1`, this means the process is not yet finished. The assistant must then send a second call to terminal with an empty `command` (which will retrieve any additional logs), or it can send additional text (set `command` to the text) to STDIN of the running process, or it can send command=`ctrl+c` to interrupt the process.
-* Timeout: If a command execution result says "Command timed out. Sending SIGINT to the process", the assistant should retry running the command in the background.
-
-Parameters:
-  (1) command (string, required): The bash command to execute. Can be empty to view additional logs when previous exit code is `-1`. Can be `ctrl+c` to interrupt the currently running process.
----- END FUNCTION #1 ----
-
----- BEGIN FUNCTION #2: finish ----
-Description: Finish the interaction when the task is complete OR if the assistant cannot proceed further with the task.
-No parameters are required for this function.
----- END FUNCTION #2 ----
-
----- BEGIN FUNCTION #3: apply_patch ----
-Description: Custom editing tool for viewing, creating and editing files
-* State is persistent across command calls and discussions with the user
-* If `path` is a file, `view` displays the result of applying `cat -n`. If `path` is a directory, `view` lists non-hidden files and directories up to 2 levels deep
-* The `create` command cannot be used if the specified `path` already exists as a file
-* If a `command` generates a long output, it will be truncated and marked with `<response clipped>`
-* The `undo_edit` command will revert the last edit made to the file at `path`
-
-Notes for using the `str_replace` command:
-* The `old_str` parameter should match EXACTLY one or more consecutive lines from the original file. Be mindful of whitespaces!
-* If the `old_str` parameter is not unique in the file, the replacement will not be performed. Make sure to include enough context in `old_str` to make it unique
-* The `new_str` parameter should contain the edited lines that should replace the `old_str`
-
-Parameters:
-  (1) command (string, required): The commands to run. Allowed options are: `view`, `create`, `str_replace`, `insert`, `undo_edit`.
-Allowed values: [`view`, `create`, `str_replace`, `insert`, `undo_edit`]
-  (2) path (string, required): Absolute path to file or directory, e.g. `/repo/file.py` or `/repo`.
-  (3) file_text (string, optional): Required parameter of `create` command, with the content of the file to be created.
-  (4) old_str (string, optional): Required parameter of `str_replace` command containing the string in `path` to replace.
-  (5) new_str (string, optional): Optional parameter of `str_replace` command containing the new string (if not given, no string will be added). Required parameter of `insert` command containing the string to insert.
-  (6) insert_line (integer, optional): Required parameter of `insert` command. The `new_str` will be inserted AFTER the line `insert_line` of `path`.
-  (7) view_range (array, optional): Optional parameter of `view` command when `path` points to a file. If none is given, the full file is shown. If provided, the file will be shown in the indicated line number range, e.g. [11, 12] will show lines 11 and 12. Indexing at 1 to start. Setting `[start_line, -1]` shows all lines from `start_line` to the end of the file.
----- END FUNCTION #3 ----""".strip()
-    )
-
+    assert '---- BEGIN FUNCTION #1: execute_bash ----' in formatted_tools
+    assert '---- BEGIN FUNCTION #2: finish ----' in formatted_tools
+    assert '---- BEGIN FUNCTION #3: apply_patch ----' in formatted_tools
+    assert 'patch (string, required)' in formatted_tools
+    assert 'security_risk (string, required)' in formatted_tools
 
 def test_get_example_for_tools_no_tools():
     """Test that get_example_for_tools returns empty string when no tools are available."""

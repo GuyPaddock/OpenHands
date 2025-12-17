@@ -114,6 +114,8 @@ def parse_patch(text: str) -> Patch:
     files: List[PatchFile] = []
     i = 1
 
+    end_index = None
+
     while i < len(lines):
         line = lines[i]
 
@@ -123,6 +125,7 @@ def parse_patch(text: str) -> Patch:
             continue
 
         if line.startswith("*** End Patch"):
+            end_index = i
             break
 
         if line.startswith("*** Add File:"):
@@ -152,6 +155,13 @@ def parse_patch(text: str) -> Patch:
             continue
 
         raise PatchParseError(f"Unexpected line: {line}")
+
+    if end_index is None:
+        raise PatchParseError("Missing *** End Patch")
+
+    trailing = [ln for ln in lines[end_index + 1 :] if ln.strip()]
+    if trailing:
+        raise PatchParseError("Trailing content after *** End Patch")
 
     if not files:
         raise PatchParseError("No file actions found")
@@ -307,10 +317,13 @@ def apply_patch(patch: Patch):
 # ============================================================
 
 def main():
+    patch = None
     try:
         patch = parse_patch(sys.stdin.read())
         apply_patch(patch)
     except PatchError as e:
+        if patch is not None and not getattr(e, "patch_id", None):
+            e.patch_id = patch.patch_id
         emit(
             {
                 "status": "failed",

@@ -322,13 +322,14 @@ There is no `app.py` file in the current directory. Let me create it with apply_
 <function=apply_patch>
 <parameter=patch>*** Begin Patch
 *** Patch-ID: create-app
-*** Add File: app.py
+*** Add File: /workspace/app.py
 print('hello world')
 *** End Patch</parameter>
+<parameter=security_risk>LOW</parameter>
 </function>
 
 USER: EXECUTION RESULT of [apply_patch]:
-APPLY_PATCH_PASS
+ADD /workspace/app.py
 """,
         'edit_file': """
 ASSISTANT:
@@ -336,25 +337,26 @@ I'll update `app.py` to run a small server:
 <function=apply_patch>
 <parameter=patch>*** Begin Patch
 *** Patch-ID: update-app
-*** Update File: app.py
+*** Update File: /workspace/app.py
 @@
 -print('hello world')
 +from flask import Flask
-
++
 +app = Flask(__name__)
-
++
 +@app.route('/')
 +def index():
 +    return 'hello world'
-
++
 +if __name__ == '__main__':
 +    app.run(port=5000)
 *** End Patch</parameter>
+<parameter=security_risk>LOW</parameter>
 </function>
 
 USER: EXECUTION RESULT of [apply_patch]:
-APPLY_PATCH_PASS
-""",
+UPDATE /workspace/app.py
+"""
     },
 }
 
@@ -393,12 +395,12 @@ USER: Create a list of numbers from 1 to 10, and display them in a web page at p
     if 'execute_bash' in available_tools:
         example += TOOL_EXAMPLES['execute_bash']['check_dir']
 
-    if 'str_replace_editor' in available_tools:
-        example += TOOL_EXAMPLES['str_replace_editor']['create_file']
     if 'apply_patch' in available_tools:
         example += TOOL_EXAMPLES['apply_patch']['create_file']
     elif 'str_replace_editor' in available_tools:
         example += TOOL_EXAMPLES['str_replace_editor']['create_file']
+    elif 'edit_file' in available_tools:
+        example += TOOL_EXAMPLES['edit_file']['create_file']
 
     if 'execute_bash' in available_tools:
         example += TOOL_EXAMPLES['execute_bash']['run_server']
@@ -409,14 +411,14 @@ USER: Create a list of numbers from 1 to 10, and display them in a web page at p
     if 'execute_bash' in available_tools:
         example += TOOL_EXAMPLES['execute_bash']['kill_server']
 
-    if 'str_replace_editor' in available_tools:
-        example += TOOL_EXAMPLES['str_replace_editor']['edit_file']
-    elif 'edit_file' in available_tools:
-        example += TOOL_EXAMPLES['edit_file']['edit_file']
     if 'apply_patch' in available_tools:
         example += TOOL_EXAMPLES['apply_patch']['edit_file']
     elif 'str_replace_editor' in available_tools:
         example += TOOL_EXAMPLES['str_replace_editor']['edit_file']
+    elif 'edit_file' in available_tools:
+        example += TOOL_EXAMPLES['edit_file']['edit_file']
+
+    if 'execute_bash' in available_tools:
         example += TOOL_EXAMPLES['execute_bash']['run_server_again']
 
     if 'finish' in available_tools:
