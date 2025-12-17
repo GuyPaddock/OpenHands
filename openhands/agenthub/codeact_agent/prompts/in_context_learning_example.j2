@@ -16,7 +16,7 @@ USER: EXECUTION RESULT of [execute_bash]:
 openhands@runtime:~/workspace$
 
 A: There is no `app.py` file in the current directory. Let me create a Python file `app.py`:
-<function=str_replace_editor>
+<function=apply_patch>
 <parameter=command>create</parameter>
 <parameter=path>/workspace/app.py</parameter>
 <parameter=file_text>
@@ -33,7 +33,7 @@ if __name__ == '__main__':
 </parameter>
 </function>
 
-USER: EXECUTION RESULT of [str_replace_editor]:
+USER: EXECUTION RESULT of [apply_patch]:
 File created successfully at: /workspace/app.py
 
 A: I have created a Python file `app.py` that will display a list of numbers from 1 to 10 when you run it. Let me run the Python file for you:
@@ -127,14 +127,14 @@ USER: EXECUTION RESULT of [execute_bash]:
 
 A:
 Now let me display the numbers in a table format:
-<function=str_replace_editor>
+<function=apply_patch>
 <parameter=command>str_replace</parameter>
 <parameter=path>/workspace/app.py</parameter>
 <parameter=old_str>return '<table>' + ''.join([f'<tr><td>{i}</td></tr>' for i in numbers]) + '</table>'</parameter>
 <parameter=new_str>return '<table>' + ''.join([f'<tr><td>{i}</td></tr>' for i in numbers]) + '</table>'</parameter>
 </function>
 
-USER: EXECUTION RESULT of [str_replace_editor]:
+USER: EXECUTION RESULT of [apply_patch]:
 The file /workspace/app.py has been edited. Here's the result of running `cat -n` on a snippet of /workspace/app.py:
      3
      4  @app.route('/')

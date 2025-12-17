@@ -19,6 +19,7 @@ from openhands.core.exceptions import (
     FunctionCallValidationError,
 )
 from openhands.llm.tool_names import (
+    APPLY_PATCH_TOOL_NAME,
     BROWSER_TOOL_NAME,
     EXECUTE_BASH_TOOL_NAME,
     FINISH_TOOL_NAME,
@@ -314,6 +315,47 @@ The server is running on port 5000 with PID 126. You can access the list of numb
 </function>
 """
     },
+    'apply_patch': {
+        'create_file': """
+ASSISTANT:
+There is no `app.py` file in the current directory. Let me create it with apply_patch:
+<function=apply_patch>
+<parameter=patch>*** Begin Patch
+*** Patch-ID: create-app
+*** Add File: app.py
+print('hello world')
+*** End Patch</parameter>
+</function>
+
+USER: EXECUTION RESULT of [apply_patch]:
+APPLY_PATCH_PASS
+""",
+        'edit_file': """
+ASSISTANT:
+I'll update `app.py` to run a small server:
+<function=apply_patch>
+<parameter=patch>*** Begin Patch
+*** Patch-ID: update-app
+*** Update File: app.py
+@@
+-print('hello world')
++from flask import Flask
+
++app = Flask(__name__)
+
++@app.route('/')
++def index():
++    return 'hello world'
+
++if __name__ == '__main__':
++    app.run(port=5000)
+*** End Patch</parameter>
+</function>
+
+USER: EXECUTION RESULT of [apply_patch]:
+APPLY_PATCH_PASS
+""",
+    },
 }
 
 
@@ -327,6 +369,8 @@ def get_example_for_tools(tools: list[dict]) -> str:
                 available_tools.add('execute_bash')
             elif name == STR_REPLACE_EDITOR_TOOL_NAME:
                 available_tools.add('str_replace_editor')
+            elif name == APPLY_PATCH_TOOL_NAME:
+                available_tools.add('apply_patch')
             elif name == BROWSER_TOOL_NAME:
                 available_tools.add('browser')
             elif name == FINISH_TOOL_NAME:
@@ -351,8 +395,10 @@ USER: Create a list of numbers from 1 to 10, and display them in a web page at p
 
     if 'str_replace_editor' in available_tools:
         example += TOOL_EXAMPLES['str_replace_editor']['create_file']
-    elif 'edit_file' in available_tools:
-        example += TOOL_EXAMPLES['edit_file']['create_file']
+    if 'apply_patch' in available_tools:
+        example += TOOL_EXAMPLES['apply_patch']['create_file']
+    elif 'str_replace_editor' in available_tools:
+        example += TOOL_EXAMPLES['str_replace_editor']['create_file']
 
     if 'execute_bash' in available_tools:
         example += TOOL_EXAMPLES['execute_bash']['run_server']
@@ -367,8 +413,10 @@ USER: Create a list of numbers from 1 to 10, and display them in a web page at p
         example += TOOL_EXAMPLES['str_replace_editor']['edit_file']
     elif 'edit_file' in available_tools:
         example += TOOL_EXAMPLES['edit_file']['edit_file']
-
-    if 'execute_bash' in available_tools:
+    if 'apply_patch' in available_tools:
+        example += TOOL_EXAMPLES['apply_patch']['edit_file']
+    elif 'str_replace_editor' in available_tools:
+        example += TOOL_EXAMPLES['str_replace_editor']['edit_file']
         example += TOOL_EXAMPLES['execute_bash']['run_server_again']
 
     if 'finish' in available_tools:

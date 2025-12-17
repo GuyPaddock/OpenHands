@@ -17,7 +17,6 @@ from openhands.agenthub.codeact_agent.tools import (
     LLMBasedFileEditTool,
     ThinkTool,
     create_cmd_run_tool,
-    create_str_replace_editor_tool,
 )
 from openhands.agenthub.codeact_agent.tools.security_utils import RISK_LEVELS
 from openhands.core.exceptions import (
@@ -43,7 +42,7 @@ from openhands.events.action.agent import CondensationRequestAction
 from openhands.events.action.mcp import MCPAction
 from openhands.events.event import FileEditSource, FileReadSource
 from openhands.events.tool import ToolCallMetadata
-from openhands.llm.tool_names import TASK_TRACKER_TOOL_NAME
+from openhands.llm.tool_names import APPLY_PATCH_TOOL_NAME, TASK_TRACKER_TOOL_NAME
 
 
 def combine_thought(action: Action, thought: str) -> Action:
@@ -170,62 +169,20 @@ def response_to_actions(
                         'impl_source', FileEditSource.LLM_BASED_EDIT
                     ),
                 )
-            elif (
-                tool_call.function.name
-                == create_str_replace_editor_tool()['function']['name']
-            ):
-                if 'command' not in arguments:
+            elif tool_call.function.name == APPLY_PATCH_TOOL_NAME:
+                if 'patch' not in arguments:
                     raise FunctionCallValidationError(
-                        f'Missing required argument "command" in tool call {tool_call.function.name}'
-                    )
-                if 'path' not in arguments:
-                    raise FunctionCallValidationError(
-                        f'Missing required argument "path" in tool call {tool_call.function.name}'
-                    )
-                path = arguments['path']
-                command = arguments['command']
-                other_kwargs = {
-                    k: v for k, v in arguments.items() if k not in ['command', 'path']
-                }
-
-                if command == 'view':
-                    action = FileReadAction(
-                        path=path,
-                        impl_source=FileReadSource.OH_ACI,
-                        view_range=other_kwargs.get('view_range', None),
-                    )
-                else:
-                    if 'view_range' in other_kwargs:
-                        # Remove view_range from other_kwargs since it is not needed for FileEditAction
-                        other_kwargs.pop('view_range')
-
-                    # Filter out unexpected arguments
-                    valid_kwargs_for_editor = {}
-                    # Get valid parameters from the str_replace_editor tool definition
-                    str_replace_editor_tool = create_str_replace_editor_tool()
-                    valid_params = set(
-                        str_replace_editor_tool['function']['parameters'][
-                            'properties'
-                        ].keys()
+                        f'Missing required argument "patch" in tool call {tool_call.function.name}'
                     )
 
-                    for key, value in other_kwargs.items():
-                        if key in valid_params:
-                            # security_risk is valid but should NOT be part of editor kwargs
-                            if key != 'security_risk':
-                                valid_kwargs_for_editor[key] = value
-                        else:
-                            raise FunctionCallValidationError(
-                                f'Unexpected argument {key} in tool call {tool_call.function.name}. Allowed arguments are: {valid_params}'
-                            )
+                patch_text = arguments['patch']
+                patch_body = patch_text.rstrip('\n')
+                command = (
+                    "APPLY_PATCH_JSON=1 python -m openhands.utils.apply_patch <<'PATCH'\n"
+                    f"{patch_body}\nPATCH"
+                )
 
-                    action = FileEditAction(
-                        path=path,
-                        command=command,
-                        impl_source=FileEditSource.OH_ACI,
-                        **valid_kwargs_for_editor,
-                    )
-
+                action = CmdRunAction(command=command)
                 set_security_risk(action, arguments)
             # ================================================
             # AgentThinkAction

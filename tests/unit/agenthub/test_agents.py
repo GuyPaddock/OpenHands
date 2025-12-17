@@ -13,8 +13,8 @@ from openhands.agenthub.codeact_agent.tools import (
     IPythonTool,
     LLMBasedFileEditTool,
     ThinkTool,
+    create_apply_patch_tool,
     create_cmd_run_tool,
-    create_str_replace_editor_tool,
 )
 from openhands.agenthub.codeact_agent.tools.browser import (
     _BROWSER_DESCRIPTION,
@@ -91,7 +91,7 @@ def test_agent_with_default_config_has_default_tools(create_llm_registry):
         'execute_bash',
         'execute_ipython_cell',
         'finish',
-        'str_replace_editor',
+        'apply_patch',
         'think',
     }.issubset(default_tool_names)
 
@@ -183,23 +183,18 @@ def test_llm_based_file_edit_tool():
     ]
 
 
-def test_str_replace_editor_tool():
-    StrReplaceEditorTool = create_str_replace_editor_tool()
-    assert StrReplaceEditorTool['type'] == 'function'
-    assert StrReplaceEditorTool['function']['name'] == 'str_replace_editor'
+def test_apply_patch_tool():
+    apply_patch_tool = create_apply_patch_tool()
+    assert apply_patch_tool['type'] == 'function'
+    assert apply_patch_tool['function']['name'] == 'apply_patch'
 
-    properties = StrReplaceEditorTool['function']['parameters']['properties']
-    assert 'command' in properties
-    assert 'path' in properties
-    assert 'file_text' in properties
-    assert 'old_str' in properties
-    assert 'new_str' in properties
-    assert 'insert_line' in properties
+    properties = apply_patch_tool['function']['parameters']['properties']
+    assert 'patch' in properties
+    assert 'security_risk' in properties
     assert 'security_risk' in properties
 
-    assert StrReplaceEditorTool['function']['parameters']['required'] == [
-        'command',
-        'path',
+    assert apply_patch_tool['function']['parameters']['required'] == [
+        'patch',
         'security_risk',
     ]
 

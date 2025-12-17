@@ -20,8 +20,8 @@ from openhands.agenthub.codeact_agent.tools.condensation_request import (
 from openhands.agenthub.codeact_agent.tools.finish import FinishTool
 from openhands.agenthub.codeact_agent.tools.ipython import IPythonTool
 from openhands.agenthub.codeact_agent.tools.llm_based_edit import LLMBasedFileEditTool
-from openhands.agenthub.codeact_agent.tools.str_replace_editor import (
-    create_str_replace_editor_tool,
+from openhands.agenthub.codeact_agent.tools.apply_patch import (
+    create_apply_patch_tool,
 )
 from openhands.agenthub.codeact_agent.tools.task_tracker import (
     create_task_tracker_tool,
@@ -144,12 +144,7 @@ class CodeActAgent(Agent):
         if self.config.enable_llm_editor:
             tools.append(LLMBasedFileEditTool)
         elif self.config.enable_editor:
-            tools.append(
-                create_str_replace_editor_tool(
-                    use_short_description=use_short_tool_desc,
-                    runtime_type=self.config.runtime,
-                )
-            )
+            tools.append(create_apply_patch_tool())
         return tools
 
     def reset(self) -> None:
