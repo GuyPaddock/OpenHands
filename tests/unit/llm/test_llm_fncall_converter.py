@@ -360,6 +360,38 @@ def test_get_example_for_tools_multiple_tools_with_finish():
     assert TOOL_EXAMPLES['finish']['example'] in example
 
 
+def test_get_example_for_tools_includes_view_file():
+    """Ensure view_file snippets are included when the tool is available."""
+    tools = [
+        {
+            'type': 'function',
+            'function': {
+                'name': 'apply_patch',
+                'description': 'Apply patches.',
+            },
+        },
+        {
+            'type': 'function',
+            'function': {
+                'name': 'view_file',
+                'description': 'View files or directories with line numbers.',
+                'parameters': {
+                    'type': 'object',
+                    'properties': {
+                        'path': {'type': 'string'},
+                        'security_risk': {'type': 'string'},
+                    },
+                    'required': ['path', 'security_risk'],
+                },
+            },
+        },
+    ]
+
+    example = get_example_for_tools(tools)
+
+    assert TOOL_EXAMPLES['apply_patch']['create_file'] in example
+    assert TOOL_EXAMPLES['view_file']['inspect_file'] in example
+
 def test_get_example_for_tools_all_tools():
     """Test that get_example_for_tools generates correct example with all tools."""
     tools = FNCALL_TOOLS  # FNCALL_TOOLS already includes 'finish'
