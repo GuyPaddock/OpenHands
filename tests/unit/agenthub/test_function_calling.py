@@ -12,6 +12,7 @@ from openhands.events.action import (
     BrowseInteractiveAction,
     CmdRunAction,
     FileEditAction,
+    FileReadAction,
     IPythonRunCellAction,
 )
 from openhands.events.event import FileEditSource
@@ -168,6 +169,29 @@ def test_apply_patch_missing_required():
     with pytest.raises(FunctionCallValidationError) as exc_info:
         response_to_actions(response)
     assert 'Missing required argument "patch"' in str(exc_info.value)
+
+
+def test_view_file_valid():
+    """Test view_file mapping to FileReadAction."""
+    response = create_mock_response(
+        'view_file', {'path': '/workspace/foo.txt', 'security_risk': 'LOW'}
+    )
+    actions = response_to_actions(response)
+    assert len(actions) == 1
+    assert isinstance(actions[0], FileReadAction)
+    assert actions[0].path == '/workspace/foo.txt'
+    assert actions[0].view_range is None
+
+
+def test_view_file_with_range():
+    """Test view_file supports view_range argument."""
+    response = create_mock_response(
+        'view_file',
+        {'path': '/workspace/foo.txt', 'view_range': [5, 10], 'security_risk': 'LOW'},
+    )
+    actions = response_to_actions(response)
+    assert isinstance(actions[0], FileReadAction)
+    assert actions[0].view_range == [5, 10]
 
 
 def test_browser_valid():

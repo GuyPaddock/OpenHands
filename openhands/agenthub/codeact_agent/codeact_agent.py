@@ -27,6 +27,7 @@ from openhands.agenthub.codeact_agent.tools.task_tracker import (
     create_task_tracker_tool,
 )
 from openhands.agenthub.codeact_agent.tools.think import ThinkTool
+from openhands.agenthub.codeact_agent.tools.view import create_view_file_tool
 from openhands.controller.agent import Agent
 from openhands.controller.state.state import State
 from openhands.core.config import AgentConfig
@@ -141,6 +142,8 @@ class CodeActAgent(Agent):
         if self.config.enable_plan_mode:
             # In plan mode, we use the task_tracker tool for task management
             tools.append(create_task_tracker_tool(use_short_tool_desc))
+        if self.config.enable_editor or self.config.enable_llm_editor:
+            tools.append(create_view_file_tool())
         if self.config.enable_llm_editor:
             tools.append(LLMBasedFileEditTool)
         elif self.config.enable_editor:

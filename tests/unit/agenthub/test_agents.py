@@ -15,6 +15,7 @@ from openhands.agenthub.codeact_agent.tools import (
     ThinkTool,
     create_apply_patch_tool,
     create_cmd_run_tool,
+    create_view_file_tool,
 )
 from openhands.agenthub.codeact_agent.tools.browser import (
     _BROWSER_DESCRIPTION,
@@ -206,6 +207,22 @@ def test_browser_tool():
     assert 'security_risk' in BrowserTool['function']['parameters']['properties']
     assert BrowserTool['function']['parameters']['required'] == [
         'code',
+        'security_risk',
+    ]
+
+
+def test_view_file_tool():
+    view_tool = create_view_file_tool()
+    assert view_tool['type'] == 'function'
+    assert view_tool['function']['name'] == 'view_file'
+
+    properties = view_tool['function']['parameters']['properties']
+    assert 'path' in properties
+    assert 'view_range' in properties
+    assert 'security_risk' in properties
+
+    assert view_tool['function']['parameters']['required'] == [
+        'path',
         'security_risk',
     ]
     # Check that the description includes all the functions
