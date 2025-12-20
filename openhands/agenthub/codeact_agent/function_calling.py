@@ -17,6 +17,7 @@ from openhands.agenthub.codeact_agent.tools import (
     LLMBasedFileEditTool,
     ThinkTool,
     create_cmd_run_tool,
+    create_view_file_tool,
 )
 from openhands.agenthub.codeact_agent.tools.security_utils import RISK_LEVELS
 from openhands.core.exceptions import (
@@ -183,6 +184,18 @@ def response_to_actions(
                 )
 
                 action = CmdRunAction(command=command)
+                set_security_risk(action, arguments)
+            elif tool_call.function.name == create_view_file_tool()['function']['name']:
+                if 'path' not in arguments:
+                    raise FunctionCallValidationError(
+                        f'Missing required argument "path" in tool call {tool_call.function.name}'
+                    )
+
+                action = FileReadAction(
+                    path=arguments['path'],
+                    impl_source=FileReadSource.OH_ACI,
+                    view_range=arguments.get('view_range'),
+                )
                 set_security_risk(action, arguments)
             # ================================================
             # AgentThinkAction

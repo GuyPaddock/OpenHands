@@ -6,6 +6,7 @@ from .finish import FinishTool
 from .ipython import IPythonTool
 from .llm_based_edit import LLMBasedFileEditTool
 from .think import ThinkTool
+from .view import create_view_file_tool
 
 __all__ = [
     'BrowserTool',
@@ -16,4 +17,5 @@ __all__ = [
     'IPythonTool',
     'LLMBasedFileEditTool',
     'ThinkTool',
+    'create_view_file_tool',
 ]
