@@ -59,10 +59,10 @@ class PatchAction(enum.Enum):
 @dataclass(frozen=True)
 class DiffHunk:
     header: str
-    before: List[str]
-    removed: List[str]
-    added: List[str]
-    after: List[str]
+    original: List[str]
+    replacement: List[str]
+    leading_context: List[str]
+    trailing_context: List[str]
 
 
 @dataclass(frozen=True)
@@ -183,30 +183,51 @@ def parse_hunks(diff_lines: List[str]) -> List[DiffHunk]:
         header = diff_lines[i]
         i += 1
 
-        before, removed, added, after = [], [], [], []
+        original, replacement, leading_context = [], [], []
+        trailing_buffer: List[str] = []
         seen_change = False
 
         while i < len(diff_lines) and not diff_lines[i].startswith("@@"):
             l = diff_lines[i]
             if l.startswith(" "):
-                (after if seen_change else before).append(l[1:])
+                text = l[1:]
+                original.append(text)
+                replacement.append(text)
+                if not seen_change:
+                    leading_context.append(text)
+                trailing_buffer.append(text)
             elif l.startswith("-"):
-                removed.append(l[1:])
+                text = l[1:]
+                original.append(text)
                 seen_change = True
+                trailing_buffer = []
             elif l.startswith("+"):
-                added.append(l[1:])
+                text = l[1:]
+                replacement.append(text)
                 seen_change = True
+                trailing_buffer = []
             else:
                 raise PatchParseError(f"Invalid diff line: {l}")
             i += 1
 
-        hunks.append(DiffHunk(header, before, removed, added, after))
+        if not seen_change:
+            raise PatchParseError("Hunk contains no changes")
+
+        hunks.append(
+            DiffHunk(
+                header,
+                original,
+                replacement,
+                leading_context,
+                trailing_buffer,
+            )
+        )
 
     return hunks
 
 
 def find_matches(lines: List[str], hunk: DiffHunk) -> List[int]:
-    pattern = hunk.before + hunk.removed + hunk.after
+    pattern = hunk.original
     matches = []
     for i in range(len(lines) - len(pattern) + 1):
         if lines[i : i + len(pattern)] == pattern:
@@ -216,9 +237,9 @@ def find_matches(lines: List[str], hunk: DiffHunk) -> List[int]:
 
 def suggest(hunk: DiffHunk) -> List[str]:
     hints = []
-    if len(hunk.before) < 3:
+    if len(hunk.leading_context) < 3:
         hints.append("Add more leading context lines before the change")
-    if len(hunk.after) < 3:
+    if len(hunk.trailing_context) < 3:
         hints.append("Add more trailing context lines after the change")
     hints.append("Include a function or class signature in the context")
     hints.append("Expand the hunk to include nearby unique statements")
@@ -232,7 +253,6 @@ def suggest(hunk: DiffHunk) -> List[str]:
 def apply_update(path: pathlib.Path, original: List[str], diff: List[str]) -> List[str]:
     hunks = parse_hunks(diff)
     lines = original[:]
-    offset = 0
 
     for h in hunks:
         matches = find_matches(lines, h)
@@ -250,16 +270,16 @@ def apply_update(path: pathlib.Path, original: List[str], diff: List[str]) -> Li
                 )
             )
 
-        idx = matches[0] + offset
-        end = idx + len(h.before) + len(h.removed) + len(h.after)
-        replacement = h.before + h.added + h.after
+        idx = matches[0]
+        end = idx + len(h.original)
+        replacement = h.replacement
         lines[idx:end] = replacement
-        offset += len(h.added) - len(h.removed)
 
     if lines == original:
         raise NoOpError(f"No-op update for {path}")
 
     return lines
+
 
 
 def apply_patch(patch: Patch):
