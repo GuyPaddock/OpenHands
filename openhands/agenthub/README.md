@@ -75,7 +75,6 @@ Here is a list of available Observations:
 - [`FileReadObservation`](../events/observation/files.py)
 - [`FileWriteObservation`](../events/observation/files.py)
 - [`ErrorObservation`](../events/observation/error.py)
-- [`SuccessObservation`](../events/observation/success.py)
 - [`PatchSuccessObservation`](../events/observation/patch_success.py)
 - [`PatchErrorObservation`](../events/observation/patch_error.py)
 

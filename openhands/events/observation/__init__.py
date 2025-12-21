@@ -28,7 +28,6 @@ from openhands.events.observation.observation import Observation
 from openhands.events.observation.patch_error import PatchErrorObservation
 from openhands.events.observation.patch_success import PatchSuccessObservation
 from openhands.events.observation.reject import UserRejectObservation
-from openhands.events.observation.success import SuccessObservation
 from openhands.events.observation.task_tracking import TaskTrackingObservation
 
 __all__ = [
@@ -46,7 +45,6 @@ __all__ = [
     'PatchErrorObservation',
     'AgentStateChangedObservation',
     'AgentDelegateObservation',
-    'SuccessObservation',
     'PatchSuccessObservation',
     'UserRejectObservation',
     'AgentCondensationObservation',
