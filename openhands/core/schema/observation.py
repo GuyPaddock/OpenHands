@@ -34,8 +34,6 @@ class ObservationType(str, Enum):
 
     ERROR = 'error'
 
-    SUCCESS = 'success'
-
     NULL = 'null'
 
     THINK = 'think'
