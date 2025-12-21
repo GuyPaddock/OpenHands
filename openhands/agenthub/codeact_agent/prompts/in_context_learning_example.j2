@@ -30,7 +30,8 @@ def index():
 
 if __name__ == '__main__':
     app.run(port=5000)
-*** End Patch</parameter>
+*** End Patch
+</parameter>
 <parameter=security_risk>LOW</parameter>
 </function>
 
@@ -135,7 +136,8 @@ Now let me display the numbers in a table format:
 @@
 -    return str(numbers)
 +    return '<table>' + ''.join([f'<tr><td>{i}</td></tr>' for i in numbers]) + '</table>'
-*** End Patch</parameter>
+*** End Patch
+</parameter>
 <parameter=security_risk>LOW</parameter>
 </function>
 
