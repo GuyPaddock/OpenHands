@@ -572,8 +572,9 @@ def test_process_events_with_function_calling_observation(conversation_memory):
 
 
 def test_process_events_with_success_observation(conversation_memory):
+    patch_text = "*** Begin Patch\n*** End Patch"
     success_content = format_apply_patch_observation(
-        action.patch, {"status": "success"}
+        patch_text, {"status": "success"}
     )
     success_obs = SuccessObservation(content=success_content)
 
@@ -589,7 +590,7 @@ def test_process_events_with_success_observation(conversation_memory):
 
     assert len(messages) == 3
     assert messages[-1].role == 'user'
-    assert messages[-1].content[0].text == '{"status": "success"}'
+    assert messages[-1].content[0].text == success_content
 
 
 def test_process_events_apply_patch_tool_call(conversation_memory):
@@ -603,7 +604,7 @@ def test_process_events_apply_patch_tool_call(conversation_memory):
     )
 
     success_content = format_apply_patch_observation(
-        action.patch, {"status": "success"}
+        action.patch, {"status": "success", "applied": []}
     )
     success_obs = SuccessObservation(content=success_content)
     success_obs._source = EventSource.AGENT
