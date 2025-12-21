@@ -21,6 +21,7 @@ from openhands.events.action.commands import (
 )
 from openhands.events.action.empty import NullAction
 from openhands.events.action.files import (
+    ApplyPatchAction,
     FileEditAction,
     FileReadAction,
     FileWriteAction,
@@ -37,6 +38,7 @@ actions = (
     FileReadAction,
     FileWriteAction,
     FileEditAction,
+    ApplyPatchAction,
     AgentThinkAction,
     AgentFinishAction,
     AgentRejectAction,

@@ -1,7 +1,6 @@
 """Test function calling module."""
 
 import json
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -10,6 +9,7 @@ from litellm import ModelResponse
 from openhands.agenthub.codeact_agent.function_calling import response_to_actions
 from openhands.core.exceptions import FunctionCallValidationError
 from openhands.events.action import (
+    ApplyPatchAction,
     BrowseInteractiveAction,
     CmdRunAction,
     FileEditAction,
@@ -158,13 +158,8 @@ hello
     )
     actions = response_to_actions(response)
     assert len(actions) == 1
-    assert isinstance(actions[0], CmdRunAction)
-    repo_root = Path(__file__).resolve().parents[3].as_posix()
-    expected_prefix = (
-        f'PYTHONPATH="{repo_root}" APPLY_PATCH_JSON=1 python -m openhands.utils.apply_patch <<\'PATCH\''
-    )
-    assert expected_prefix in actions[0].command
-    assert patch_text.rstrip('\n') in actions[0].command
+    assert isinstance(actions[0], ApplyPatchAction)
+    assert actions[0].patch == patch_text.rstrip('\n')
 
 
 def test_apply_patch_missing_required():

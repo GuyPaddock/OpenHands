@@ -289,7 +289,7 @@ def apply_update(path: pathlib.Path, original: List[str], diff: List[str]) -> Li
 
 
 
-def apply_patch(patch: Patch):
+def apply_patch(patch: Patch) -> dict:
     cwd = pathlib.Path.cwd()
     staging = pathlib.Path(tempfile.mkdtemp(prefix="apply_patch_"))
     applied = []
@@ -327,13 +327,11 @@ def apply_patch(patch: Patch):
             else:
                 shutil.move(str(dst), str(src))
 
-        emit(
-            {
-                "status": "success",
-                "patch_id": patch.patch_id,
-                "applied": applied,
-            }
-        )
+        return {
+            "status": "success",
+            "patch_id": patch.patch_id,
+            "applied": applied,
+        }
 
     finally:
         shutil.rmtree(staging, ignore_errors=True)
@@ -347,7 +345,7 @@ def main():
     patch = None
     try:
         patch = parse_patch(sys.stdin.read())
-        apply_patch(patch)
+        emit(apply_patch(patch))
     except PatchError as e:
         if patch is not None and not getattr(e, "patch_id", None):
             e.patch_id = patch.patch_id

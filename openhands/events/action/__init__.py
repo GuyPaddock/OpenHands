@@ -17,6 +17,7 @@ from openhands.events.action.browse import BrowseInteractiveAction, BrowseURLAct
 from openhands.events.action.commands import CmdRunAction, IPythonRunCellAction
 from openhands.events.action.empty import NullAction
 from openhands.events.action.files import (
+    ApplyPatchAction,
     FileEditAction,
     FileReadAction,
     FileWriteAction,
@@ -33,6 +34,7 @@ __all__ = [
     'FileReadAction',
     'FileWriteAction',
     'FileEditAction',
+    'ApplyPatchAction',
     'AgentFinishAction',
     'AgentRejectAction',
     'AgentDelegateAction',

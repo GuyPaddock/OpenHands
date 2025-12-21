@@ -25,6 +25,7 @@ from openhands.events.action import (
     BrowseInteractiveAction,
     BrowseURLAction,
     CmdRunAction,
+    ApplyPatchAction,
     FileEditAction,
     FileReadAction,
     FileWriteAction,
@@ -354,6 +355,9 @@ class ActionExecutionClient(Runtime):
         return self.send_action_for_execution(action)
 
     def edit(self, action: FileEditAction) -> Observation:
+        return self.send_action_for_execution(action)
+
+    def apply_patch(self, action: ApplyPatchAction) -> Observation:
         return self.send_action_for_execution(action)
 
     def browse(self, action: BrowseURLAction) -> Observation:
