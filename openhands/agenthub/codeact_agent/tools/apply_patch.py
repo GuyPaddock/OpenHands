@@ -25,7 +25,6 @@ Usage:
 - `Add File` cannot be used if the specified `path` already exists as a file.
 - State is persistent across command calls and discussions with the user.
 - Provide the full patch payload between `*** Begin Patch` and `*** End Patch` lines.
-- Optionally include `*** Patch-ID: <id>` for retry correlation.
 - Always use absolute file paths (starting with /).
 
 Before using this tool:

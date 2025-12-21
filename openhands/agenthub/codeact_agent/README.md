@@ -46,7 +46,6 @@ The agent provides several built-in tools:
 ### 5. `apply_patch`
 - Atomic patch-based editing for create/update/delete
 - Structured JSON diagnostics when available
-- Patch-ID correlation for retries
 
 ### 6. `edit_file` (LLM-based)
 - Edit files using LLM-based content generation

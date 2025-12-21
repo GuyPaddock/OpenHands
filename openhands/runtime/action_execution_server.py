@@ -599,7 +599,6 @@ class ActionExecutor:
             )
             return ApplyPatchObservation(
                 content=result.get("status", None),
-                patch_id=patch.patch_id,
                 patch=action.patch,
                 applied_hunks=result.get("applied", []),
             )

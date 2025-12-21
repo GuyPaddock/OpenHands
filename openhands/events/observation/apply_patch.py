@@ -9,7 +9,6 @@ class ApplyPatchObservation(Observation):
     """Result of a successful apply_patch invocation."""
 
     patch: str | None = None
-    patch_id: str | None = None
     applied_hunks: list[dict] | None = None
     thought: str = ''
     observation: str = ObservationType.APPLY_PATCH

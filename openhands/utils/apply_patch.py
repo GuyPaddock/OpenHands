@@ -85,7 +85,6 @@ class PatchFile:
 
 @dataclass(frozen=True)
 class Patch:
-    patch_id: Optional[str]
     files: List[PatchFile]
 
 
@@ -139,7 +138,6 @@ def parse_patch(text: str) -> Patch:
     if not lines or not lines[0].startswith("*** Begin Patch"):
         raise PatchParseError("Missing *** Begin Patch")
 
-    patch_id = None
     files: List[PatchFile] = []
     i = 1
 
@@ -147,11 +145,6 @@ def parse_patch(text: str) -> Patch:
 
     while i < len(lines):
         line = lines[i]
-
-        if line.startswith("*** Patch-ID:"):
-            patch_id = line.split(":", 1)[1].strip()
-            i += 1
-            continue
 
         if line.startswith("*** End Patch"):
             end_index = i
@@ -195,7 +188,7 @@ def parse_patch(text: str) -> Patch:
     if not files:
         raise PatchParseError("No file actions found")
 
-    return Patch(patch_id, files)
+    return Patch(files)
 
 
 # ============================================================
@@ -356,7 +349,6 @@ def apply_patch(
 
         return {
             "status": "success",
-            "patch_id": patch.patch_id,
             "applied": applied,
         }
 
@@ -374,12 +366,9 @@ def main():
         patch = parse_patch(sys.stdin.read())
         emit(apply_patch(patch))
     except PatchError as e:
-        if patch is not None and not getattr(e, "patch_id", None):
-            e.patch_id = patch.patch_id
         emit(
             {
                 "status": "failed",
-                "patch_id": getattr(e, "patch_id", None),
                 "error_type": e.error_type,
                 "message": str(e),
             },

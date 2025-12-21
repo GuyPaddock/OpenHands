@@ -150,13 +150,6 @@ class ApplyPatchAction(Action):
 
     def __repr__(self) -> str:
         return (
-            f"**ApplyPatchAction**\nPatch Id: {self.patch_id or ''}\n"
+            f"**ApplyPatchAction**\n"
             f"Patch:\n```\n{self.patch}\n```\n"
         )
-
-    @property
-    def patch_id(self) -> str | None:
-        for line in self.patch.splitlines():
-            if line.startswith('*** Patch-ID:'):
-                return line.split(':', 1)[1].strip()
-        return None

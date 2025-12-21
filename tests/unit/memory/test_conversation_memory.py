@@ -598,7 +598,7 @@ def test_process_events_with_success_observation(conversation_memory):
 
 def test_process_events_apply_patch_tool_call(conversation_memory):
     action = ApplyPatchAction(
-        patch='*** Begin Patch\n*** Patch-ID: demo\n*** End Patch',
+        patch='*** Begin Patch\n*** End Patch',
         thought='create file',
     )
     action._source = EventSource.AGENT

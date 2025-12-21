@@ -273,7 +273,6 @@ ASSISTANT:
 There is no `app.py` file in the current directory. Let me create it with apply_patch:
 <function=apply_patch>
 <parameter=patch>*** Begin Patch
-*** Patch-ID: create-app
 *** Add File: /workspace/app.py
 print('hello world')
 *** End Patch</parameter>
@@ -288,7 +287,6 @@ ASSISTANT:
 I'll update `app.py` to run a small server:
 <function=apply_patch>
 <parameter=patch>*** Begin Patch
-*** Patch-ID: update-app
 *** Update File: /workspace/app.py
 @@
 -print('hello world')
@@ -322,13 +320,13 @@ Let me review the updated file to confirm the changes:
 
 USER: EXECUTION RESULT of [view_file]:
      1  from flask import Flask
-     2  
+     2
      3  app = Flask(__name__)
-     4  
+     4
      5  @app.route('/')
      6  def index():
      7      return 'hello world'
-     8  
+     8
      9  if __name__ == '__main__':
     10      app.run(port=5000)
 """

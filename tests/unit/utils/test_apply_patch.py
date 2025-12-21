@@ -37,7 +37,6 @@ def test_add_file(tmp_path: pathlib.Path):
     patch = textwrap.dedent(
         """\
         *** Begin Patch
-        *** Patch-ID: add-file
         *** Add File: foo.txt
         hello
         world
@@ -57,7 +56,6 @@ def test_delete_file(tmp_path: pathlib.Path):
     patch = textwrap.dedent(
         """\
         *** Begin Patch
-        *** Patch-ID: delete-file
         *** Delete File: foo.txt
         *** End Patch
         """
@@ -74,7 +72,6 @@ def test_update_file(tmp_path: pathlib.Path):
     patch = textwrap.dedent(
         """\
         *** Begin Patch
-        *** Patch-ID: update-file
         *** Update File: foo.py
         @@
          a = 1
@@ -96,7 +93,6 @@ def test_multiple_hunks(tmp_path: pathlib.Path):
     patch = textwrap.dedent(
         """\
         *** Begin Patch
-        *** Patch-ID: multi-hunk
         *** Update File: foo.py
         @@
          a = 1
@@ -145,7 +141,6 @@ def test_leading_blank_lines_before_begin(tmp_path: pathlib.Path):
         """\
 
         *** Begin Patch
-        *** Patch-ID: leading-blank
         *** Add File: foo.txt
         hello
         *** End Patch
@@ -182,7 +177,6 @@ def test_ambiguous_hunk_json(tmp_path: pathlib.Path):
     patch = textwrap.dedent(
         """\
         *** Begin Patch
-        *** Patch-ID: ambiguous
         *** Update File: foo.py
         @@
          alpha
@@ -199,7 +193,6 @@ def test_ambiguous_hunk_json(tmp_path: pathlib.Path):
     assert proc.returncode != 0
     assert payload["status"] == "failed"
     assert payload["error_type"] == "ambiguous_hunk"
-    assert payload["patch_id"] == "ambiguous"
     assert "suggestions" in payload["message"]
 
 
@@ -208,7 +201,6 @@ def test_noop_update_json(tmp_path: pathlib.Path):
     patch = textwrap.dedent(
         """\
         *** Begin Patch
-        *** Patch-ID: noop
         *** Update File: foo.txt
         @@
         -hello
@@ -222,7 +214,6 @@ def test_noop_update_json(tmp_path: pathlib.Path):
 
     assert proc.returncode != 0
     assert payload["status"] == "failed"
-    assert payload["patch_id"] == "noop"
     assert payload["error_type"] == "noop_update"
 
 
@@ -231,7 +222,6 @@ def test_atomicity_on_failure(tmp_path: pathlib.Path):
     patch = textwrap.dedent(
         """\
         *** Begin Patch
-        *** Patch-ID: atomicity
         *** Add File: new.txt
         hello
         *** Update File: good.txt
@@ -247,28 +237,6 @@ def test_atomicity_on_failure(tmp_path: pathlib.Path):
     assert proc.returncode != 0
     assert not (tmp_path / "new.txt").exists()
     assert read(tmp_path, "good.txt") == "ok\n"
-
-
-def test_patch_id_propagates_on_failure(tmp_path: pathlib.Path):
-    write(tmp_path, "foo.txt", "hello\n")
-    patch = textwrap.dedent(
-        """\
-        *** Begin Patch
-        *** Patch-ID: propagate
-        *** Update File: foo.txt
-        @@
-        -missing
-        +replacement
-        *** End Patch
-        """
-    )
-
-    proc = run_apply_patch(tmp_path, patch, json_mode=True)
-    payload = json.loads(proc.stdout)
-
-    assert proc.returncode != 0
-    assert payload["patch_id"] == "propagate"
-    assert payload["status"] == "failed"
 
 
 def test_rejects_relative_escape(tmp_path: pathlib.Path):

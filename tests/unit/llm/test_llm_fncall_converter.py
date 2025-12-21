@@ -88,7 +88,6 @@ def test_malformed_parameter_parsing_recovery():
         'role': 'assistant',
         'content': """<function=apply_patch>
 <parameter=patch=*** Begin Patch
-*** Patch-ID: malformed
 *** Add File: /repo/app.py
 hello
 *** End Patch</parameter>

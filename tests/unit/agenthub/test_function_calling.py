@@ -149,7 +149,6 @@ def test_edit_file_missing_required():
 def test_apply_patch_valid():
     """Test apply_patch command construction."""
     patch_text = """*** Begin Patch
-*** Patch-ID: demo
 *** Add File: foo.txt
 hello
 *** End Patch"""
