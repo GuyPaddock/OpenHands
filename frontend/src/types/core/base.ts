@@ -15,6 +15,7 @@ export type OpenHandsEventType =
   | "think"
   | "finish"
   | "error"
+  | "success"
   | "recall"
   | "mcp"
   | "call_tool_mcp"
