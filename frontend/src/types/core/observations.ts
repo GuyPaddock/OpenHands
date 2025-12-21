@@ -103,7 +103,19 @@ export interface ErrorObservation extends OpenHandsObservationEvent<"error"> {
   };
 }
 
+export interface PatchErrorObservation extends OpenHandsObservationEvent<"patch_error"> {
+  source: "agent";
+  extras: {
+    error_id?: string;
+  };
+}
+
 export interface SuccessObservation extends OpenHandsObservationEvent<"success"> {
+  source: "agent";
+  extras: Record<string, unknown>;
+}
+
+export interface PatchSuccessObservation extends OpenHandsObservationEvent<"patch_success"> {
   source: "agent";
   extras: Record<string, unknown>;
 }
@@ -178,7 +190,9 @@ export type OpenHandsObservation =
   | ReadObservation
   | EditObservation
   | ErrorObservation
+  | PatchErrorObservation
   | SuccessObservation
+  | PatchSuccessObservation
   | RecallObservation
   | MCPObservation
   | UserRejectedObservation

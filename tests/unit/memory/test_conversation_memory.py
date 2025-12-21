@@ -22,7 +22,10 @@ from openhands.events.event import (
     FileReadSource,
     RecallType,
 )
-from openhands.events.observation import CmdOutputObservation, SuccessObservation
+from openhands.events.observation import (
+    CmdOutputObservation,
+    PatchSuccessObservation,
+)
 from openhands.events.observation.agent import (
     MicroagentKnowledge,
     RecallObservation,
@@ -576,7 +579,7 @@ def test_process_events_with_success_observation(conversation_memory):
     success_content = format_apply_patch_observation(
         patch_text, {"status": "success"}
     )
-    success_obs = SuccessObservation(content=success_content)
+    success_obs = PatchSuccessObservation(content=success_content)
 
     initial_user_action = MessageAction(content='Initial user message')
     initial_user_action._source = EventSource.USER
@@ -606,7 +609,7 @@ def test_process_events_apply_patch_tool_call(conversation_memory):
     success_content = format_apply_patch_observation(
         action.patch, {"status": "success", "applied": []}
     )
-    success_obs = SuccessObservation(content=success_content)
+    success_obs = PatchSuccessObservation(content=success_content)
     success_obs._source = EventSource.AGENT
     success_obs.tool_call_metadata = _create_mock_tool_call_metadata(
         tool_call_id='patch_call_1', function_name='apply_patch'

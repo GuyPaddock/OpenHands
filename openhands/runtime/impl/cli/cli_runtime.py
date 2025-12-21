@@ -46,7 +46,8 @@ from openhands.events.observation import (
     FileReadObservation,
     FileWriteObservation,
     Observation,
-    SuccessObservation,
+    PatchErrorObservation,
+    PatchSuccessObservation,
 )
 from openhands.integrations.provider import PROVIDER_TOKEN_TYPE
 from openhands.llm.llm_registry import LLMRegistry
@@ -690,7 +691,7 @@ class CLIRuntime(Runtime):
 
     def apply_patch(self, action: ApplyPatchAction) -> Observation:
         if not self._runtime_initialized:
-            return ErrorObservation('Runtime not initialized')
+            return PatchErrorObservation('Runtime not initialized')
 
         patch = None
         try:
@@ -699,7 +700,7 @@ class CLIRuntime(Runtime):
                 patch, workspace_root=Path(self._workspace_path)
             )
             content = patch_utils.format_apply_patch_observation(action.patch, result)
-            return SuccessObservation(content)
+            return PatchSuccessObservation(content)
         except patch_utils.PatchError as e:
             failure = {
                 "status": "failed",
@@ -708,7 +709,10 @@ class CLIRuntime(Runtime):
                 "error_type": e.error_type,
                 "message": str(e),
             }
-            return ErrorObservation(json.dumps(failure, indent=2))
+            content = patch_utils.format_apply_patch_observation(
+                action.patch, failure
+            )
+            return PatchErrorObservation(content)
 
     async def call_tool_mcp(self, action: MCPAction) -> Observation:
         """Execute an MCP tool action in CLI runtime.

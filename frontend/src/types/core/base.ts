@@ -16,6 +16,8 @@ export type OpenHandsEventType =
   | "finish"
   | "error"
   | "success"
+  | "patch_error"
+  | "patch_success"
   | "recall"
   | "mcp"
   | "call_tool_mcp"

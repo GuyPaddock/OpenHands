@@ -59,5 +59,11 @@ class ObservationType(str, Enum):
     TASK_TRACKING = 'task_tracking'
     """Result of a task tracking operation"""
 
+    PATCH_SUCCESS = 'patch_success'
+    """Result of a successful apply_patch invocation"""
+
+    PATCH_ERROR = 'patch_error'
+    """Result of a failed apply_patch invocation"""
+
     LOOP_DETECTION = 'loop_detection'
     """Results of a dead-loop detection"""

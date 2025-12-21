@@ -165,8 +165,10 @@ export const getObservationContent = (event: OpenHandsObservation): string => {
     case "task_tracking":
       return getTaskTrackingObservationContent(event);
     case "success":
+    case "patch_success":
       return getSuccessObservationContent(event);
     case "error":
+    case "patch_error":
       return getErrorObservationContent(event);
     default:
       return getDefaultEventContent(event);

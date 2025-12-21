@@ -59,7 +59,8 @@ from openhands.events.observation import (
     FileWriteObservation,
     IPythonRunCellObservation,
     Observation,
-    SuccessObservation,
+    PatchErrorObservation,
+    PatchSuccessObservation,
 )
 from openhands.events.serialization import event_from_dict, event_to_dict
 from openhands.runtime.browser import browse
@@ -599,7 +600,7 @@ class ActionExecutor:
                 patch, workspace_root=Path(self.initial_cwd)
             )
             content = patch_utils.format_apply_patch_observation(action.patch, result)
-            return SuccessObservation(content)
+            return PatchSuccessObservation(content)
         except patch_utils.PatchError as e:
             failure = {
                 "status": "failed",
@@ -608,7 +609,10 @@ class ActionExecutor:
                 "error_type": e.error_type,
                 "message": str(e),
             }
-            return ErrorObservation(json.dumps(failure, indent=2))
+            content = patch_utils.format_apply_patch_observation(
+                action.patch, failure
+            )
+            return PatchErrorObservation(content)
 
     async def browse(self, action: BrowseURLAction) -> Observation:
         if self.browser is None:
