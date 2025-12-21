@@ -140,6 +140,24 @@ def test_trailing_garbage(tmp_path: pathlib.Path):
     assert "Trailing content" in proc.stderr
 
 
+def test_leading_blank_lines_before_begin(tmp_path: pathlib.Path):
+    patch = textwrap.dedent(
+        """\
+
+        *** Begin Patch
+        *** Patch-ID: leading-blank
+        *** Add File: foo.txt
+        hello
+        *** End Patch
+        """
+    )
+
+    proc = run_apply_patch(tmp_path, patch)
+
+    assert proc.returncode == 0
+    assert read(tmp_path, "foo.txt") == "hello\n"
+
+
 def test_context_mismatch(tmp_path: pathlib.Path):
     write(tmp_path, "foo.py", "a = 1\n")
     patch = textwrap.dedent(

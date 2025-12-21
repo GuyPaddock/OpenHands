@@ -172,6 +172,9 @@ def resolve_patch_path(
 
 def parse_patch(text: str) -> Patch:
     lines = normalize_lines(text)
+    while lines and not lines[0].strip():
+        lines.pop(0)
+
     if not lines or not lines[0].startswith("*** Begin Patch"):
         raise PatchParseError("Missing *** Begin Patch")
 
