@@ -691,7 +691,14 @@ class CLIRuntime(Runtime):
 
     def apply_patch(self, action: ApplyPatchAction) -> Observation:
         if not self._runtime_initialized:
-            return PatchErrorObservation('Runtime not initialized')
+            failure = {
+                "status": "failed",
+                "patch_id": None,
+                "error_type": "runtime_not_initialized",
+                "message": "Runtime not initialized",
+            }
+            content = patch_utils.format_apply_patch_observation(action.patch, failure)
+            return PatchErrorObservation(content)
 
         patch = None
         try:
