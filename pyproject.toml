@@ -24,9 +24,6 @@ include = [
 ]
 build = "build_vscode.py" # Build VSCode extension during Poetry build
 
-[tool.poetry.scripts]
-apply_patch = "openhands.utils.apply_patch:main"
-
 [tool.poetry.dependencies]
 python = "^3.12,<3.14"
 litellm = ">=1.74.3, <1.78.0, !=1.64.4, !=1.67.*"  # avoid 1.64.4 (known bug) & 1.67.* (known bug #10272)
