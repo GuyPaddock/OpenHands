@@ -11,6 +11,7 @@ from openhands.events.action import (
     AgentDelegateAction,
     AgentFinishAction,
     AgentThinkAction,
+    ApplyPatchAction,
     BrowseInteractiveAction,
     BrowseURLAction,
     CmdRunAction,
@@ -191,7 +192,7 @@ class ConversationMemory:
         """Converts an action into a message format that can be sent to the LLM.
 
         This method handles different types of actions and formats them appropriately:
-        1. For tool-based actions (AgentDelegate, CmdRun, IPythonRunCell, FileEdit) and agent-sourced AgentFinish:
+        1. For tool-based actions (AgentDelegate, CmdRun, IPythonRunCell, FileEdit, ApplyPatch) and agent-sourced AgentFinish:
             - In function calling mode: Stores the LLM's response in pending_tool_call_action_messages
             - In non-function calling mode: Creates a message with the action string
         2. For MessageActions: Creates a message with the text content and optional image content
@@ -226,6 +227,7 @@ class ConversationMemory:
             (
                 AgentDelegateAction,
                 AgentThinkAction,
+                ApplyPatchAction,
                 IPythonRunCellAction,
                 FileEditAction,
                 FileReadAction,
