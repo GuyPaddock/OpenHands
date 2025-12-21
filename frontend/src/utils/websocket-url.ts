@@ -9,6 +9,17 @@ export function extractBaseHost(
   if (conversationUrl && !conversationUrl.startsWith("/")) {
     try {
       const url = new URL(conversationUrl);
+      // If the backend returns a localhost URL but the UI is accessed via
+      // another hostname (e.g., from a remote machine), swap the hostname
+      // while preserving the backend-provided port so the socket remains
+      // reachable.
+      if (
+        ["localhost", "127.0.0.1"].includes(url.hostname) &&
+        window.location.hostname !== url.hostname
+      ) {
+        return `${window.location.hostname}${url.port ? `:${url.port}` : ""}`;
+      }
+
       return url.host; // e.g., "localhost:3000"
     } catch {
       return window.location.host;

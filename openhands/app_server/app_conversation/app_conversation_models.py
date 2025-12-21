@@ -1,6 +1,7 @@
 from datetime import datetime
 from enum import Enum
-from uuid import uuid4
+from typing import Literal
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
@@ -97,7 +98,9 @@ class AppConversationStartRequest(BaseModel):
     """
 
     sandbox_id: str | None = Field(default=None)
+    conversation_id: UUID | None = Field(default=None)
     initial_message: SendMessageRequest | None = None
+    system_message_suffix: str | None = None
     processors: list[EventCallbackProcessor] | None = Field(default=None)
     llm_model: str | None = None
 
@@ -159,3 +162,12 @@ class AppConversationStartTask(BaseModel):
 class AppConversationStartTaskPage(BaseModel):
     items: list[AppConversationStartTask]
     next_page_id: str | None = None
+
+
+class SkillResponse(BaseModel):
+    """Response model for skills endpoint."""
+
+    name: str
+    type: Literal['repo', 'knowledge']
+    content: str
+    triggers: list[str] = []
