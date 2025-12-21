@@ -21,11 +21,11 @@ from openhands.events.action.commands import (
 )
 from openhands.events.action.empty import NullAction
 from openhands.events.action.files import (
-    ApplyPatchAction,
     FileEditAction,
     FileReadAction,
     FileWriteAction,
 )
+from openhands.events.action.apply_patch import ApplyPatchAction
 from openhands.events.action.mcp import MCPAction
 from openhands.events.action.message import MessageAction, SystemMessageAction
 

@@ -136,20 +136,3 @@ class FileEditAction(Action):
                 ret += 'Undo Edit\n'
             # We ignore "view" command because it will be mapped to a FileReadAction
         return ret
-
-
-@dataclass
-class ApplyPatchAction(Action):
-    """Applies a Codex-style patch across one or more files."""
-
-    patch: str
-    thought: str = ''
-    action: str = ActionType.APPLY_PATCH
-    runnable: ClassVar[bool] = True
-    security_risk: ActionSecurityRisk = ActionSecurityRisk.UNKNOWN
-
-    def __repr__(self) -> str:
-        return (
-            f"**ApplyPatchAction**\n"
-            f"Patch:\n```\n{self.patch}\n```\n"
-        )
