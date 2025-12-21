@@ -5,6 +5,7 @@ from openhands.events.action import (
     BrowseInteractiveAction,
     BrowseURLAction,
     CmdRunAction,
+    ApplyPatchAction,
     FileEditAction,
     FileReadAction,
     FileWriteAction,
@@ -210,6 +211,18 @@ def test_file_edit_action_aci_serialization_deserialization():
         },
     }
     serialization_deserialization(original_action_dict, FileEditAction)
+
+
+def test_apply_patch_action_serialization_deserialization():
+    original_action_dict = {
+        'action': 'apply_patch',
+        'args': {
+            'patch': '*** Begin Patch\n*** End Patch',
+            'thought': '',
+            'security_risk': -1,
+        },
+    }
+    serialization_deserialization(original_action_dict, ApplyPatchAction)
 
 
 def test_file_edit_action_llm_serialization_deserialization():

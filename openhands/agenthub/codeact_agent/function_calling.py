@@ -4,8 +4,6 @@ This is similar to the functionality of `CodeActResponseParser`.
 """
 
 import json
-import textwrap
-from pathlib import Path
 
 from litellm import (
     ModelResponse,
@@ -33,6 +31,7 @@ from openhands.events.action import (
     AgentDelegateAction,
     AgentFinishAction,
     AgentThinkAction,
+    ApplyPatchAction,
     BrowseInteractiveAction,
     CmdRunAction,
     FileEditAction,
@@ -46,9 +45,6 @@ from openhands.events.action.mcp import MCPAction
 from openhands.events.event import FileEditSource, FileReadSource
 from openhands.events.tool import ToolCallMetadata
 from openhands.llm.tool_names import APPLY_PATCH_TOOL_NAME, TASK_TRACKER_TOOL_NAME
-
-REPO_ROOT = Path(__file__).resolve().parents[3]
-
 
 def combine_thought(action: Action, thought: str) -> Action:
     if not hasattr(action, 'thought'):
@@ -179,17 +175,7 @@ def response_to_actions(
                     raise FunctionCallValidationError(
                         f'Missing required argument "patch" in tool call {tool_call.function.name}'
                     )
-
-                patch_text = arguments['patch'].rstrip('\n')
-                repo_root = REPO_ROOT.as_posix()
-                command = textwrap.dedent(
-                    f"""PYTHONPATH="{repo_root}" APPLY_PATCH_JSON=1 python -m openhands.utils.apply_patch <<'PATCH'
-{patch_text}
-PATCH
-"""
-                )
-
-                action = CmdRunAction(command=command)
+                action = ApplyPatchAction(patch=arguments['patch'].rstrip('\n'))
                 set_security_risk(action, arguments)
             elif tool_call.function.name == create_view_file_tool()['function']['name']:
                 if 'path' not in arguments:

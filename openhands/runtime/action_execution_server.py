@@ -42,12 +42,14 @@ from openhands.events.action import (
     BrowseInteractiveAction,
     BrowseURLAction,
     CmdRunAction,
+    ApplyPatchAction,
     FileEditAction,
     FileReadAction,
     FileWriteAction,
     IPythonRunCellAction,
 )
 from openhands.events.event import FileEditSource, FileReadSource
+from openhands.utils import apply_patch as patch_utils
 from openhands.events.observation import (
     CmdOutputObservation,
     ErrorObservation,
@@ -57,6 +59,7 @@ from openhands.events.observation import (
     FileWriteObservation,
     IPythonRunCellObservation,
     Observation,
+    SuccessObservation,
 )
 from openhands.events.serialization import event_from_dict, event_to_dict
 from openhands.runtime.browser import browse
@@ -587,6 +590,22 @@ class ActionExecutor:
                 filepath=action.path,
             ),
         )
+
+    async def apply_patch(self, action: ApplyPatchAction) -> Observation:
+        patch = None
+        try:
+            patch = patch_utils.parse_patch(action.patch)
+            result = patch_utils.apply_patch(patch)
+            return SuccessObservation(json.dumps(result, indent=2))
+        except patch_utils.PatchError as e:
+            failure = {
+                "status": "failed",
+                "patch_id": getattr(e, "patch_id", None)
+                or (patch.patch_id if patch else None),
+                "error_type": e.error_type,
+                "message": str(e),
+            }
+            return ErrorObservation(json.dumps(failure, indent=2))
 
     async def browse(self, action: BrowseURLAction) -> Observation:
         if self.browser is None:
