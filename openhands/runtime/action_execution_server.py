@@ -592,26 +592,21 @@ class ActionExecutor:
         )
 
     async def apply_patch(self, action: ApplyPatchAction) -> Observation:
-        patch = None
         try:
             patch = patch_utils.parse_patch(action.patch)
             result = patch_utils.apply_patch(
-                patch, workspace_root=Path(self.initial_cwd)
+                patch, workspace_root=Path(self._initial_cwd)
             )
-            content = patch_utils.format_apply_patch_observation(action.patch, result)
-            return ApplyPatchObservation(content)
-        except patch_utils.PatchError as e:
-            failure = {
-                "status": "failed",
-                "patch_id": getattr(e, "patch_id", None)
-                or (patch.patch_id if patch else None),
-                "error_type": e.error_type,
-                "message": str(e),
-            }
-            content = patch_utils.format_apply_patch_observation(
-                action.patch, failure
+            return ApplyPatchObservation(
+                content=result.get("status", None),
+                patch_id=patch.patch_id,
+                patch=action.patch,
+                applied_hunks=result.get("applied", []),
             )
-            return ApplyPatchObservation(content)
+        except patch_utils.PatchError as error:
+            return ErrorObservation(
+                f'Failed to apply patch ({error.error_type}): {str(error)}'
+            )
 
     async def browse(self, action: BrowseURLAction) -> Observation:
         if self.browser is None:

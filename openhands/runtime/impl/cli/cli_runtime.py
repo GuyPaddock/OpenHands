@@ -690,35 +690,23 @@ class CLIRuntime(Runtime):
 
     def apply_patch(self, action: ApplyPatchAction) -> Observation:
         if not self._runtime_initialized:
-            failure = {
-                "status": "failed",
-                "patch_id": None,
-                "error_type": "runtime_not_initialized",
-                "message": "Runtime not initialized",
-            }
-            content = patch_utils.format_apply_patch_observation(action.patch, failure)
-            return ApplyPatchObservation(content)
+            return ErrorObservation('Runtime not initialized')
 
-        patch = None
         try:
             patch = patch_utils.parse_patch(action.patch)
             result = patch_utils.apply_patch(
                 patch, workspace_root=Path(self._workspace_path)
             )
-            content = patch_utils.format_apply_patch_observation(action.patch, result)
-            return ApplyPatchObservation(content)
-        except patch_utils.PatchError as e:
-            failure = {
-                "status": "failed",
-                "patch_id": getattr(e, "patch_id", None)
-                or (patch.patch_id if patch else None),
-                "error_type": e.error_type,
-                "message": str(e),
-            }
-            content = patch_utils.format_apply_patch_observation(
-                action.patch, failure
+            return ApplyPatchObservation(
+                content=result.get("status", None),
+                patch_id=patch.patch_id,
+                patch=action.patch,
+                applied_hunks=result.get("applied", []),
             )
-            return ApplyPatchObservation(content)
+        except patch_utils.PatchError as error:
+            return ErrorObservation(
+                f'Failed to apply patch ({error.error_type}): {str(error)}'
+            )
 
     async def call_tool_mcp(self, action: MCPAction) -> Observation:
         """Execute an MCP tool action in CLI runtime.

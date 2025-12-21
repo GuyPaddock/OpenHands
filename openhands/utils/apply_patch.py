@@ -108,45 +108,6 @@ def emit(obj: dict, exit_code: int = 0):
     sys.exit(exit_code)
 
 
-def format_apply_patch_observation(patch_text: str, result: dict) -> str:
-    formatted_patch = "\n".join(
-        f"> {line}" for line in normalize_lines(patch_text.rstrip("\n"))
-    )
-
-    header = "apply_patch <<'PATCH'"
-    body_lines = [header]
-    if formatted_patch:
-        body_lines.append(formatted_patch)
-    body_lines.append("PATCH")
-
-    status = result.get("status") if result else None
-    result_lines: List[str] = []
-
-    if status == "success":
-        result_lines.append("Result: success")
-        for applied in result.get("applied", []):
-            action = applied.get("action", "?")
-            file = applied.get("file", "")
-            result_lines.append(f"✔ {action} {file}".rstrip())
-    elif status == "failed":
-        result_lines.append("Result: failed")
-        error_type = result.get("error_type")
-        message = result.get("message")
-        if error_type:
-            result_lines.append(f"error_type: {error_type}")
-        if message:
-            result_lines.append(f"message: {message}")
-    elif result:
-        # Fallback: render the raw payload if we don't recognize the shape
-        result_lines.append(json.dumps(result, indent=2))
-
-    if result_lines:
-        body_lines.append("")
-        body_lines.extend(result_lines)
-
-    return "\n".join(body_lines)
-
-
 def normalize_lines(text: str) -> List[str]:
     return text.replace("\r\n", "\n").replace("\r", "\n").splitlines()
 

@@ -107,7 +107,8 @@ export interface ApplyPatchObservation extends OpenHandsObservationEvent<"apply_
   source: "agent";
   extras: {
     patch: string;
-    error_id?: string;
+    patch_id: string;
+    applied_hunks: {};
   };
 }
 

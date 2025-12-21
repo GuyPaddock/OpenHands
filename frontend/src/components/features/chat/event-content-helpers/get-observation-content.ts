@@ -1,4 +1,5 @@
 import {
+  ApplyPatchObservation,
   ReadObservation,
   CommandObservation,
   IPythonObservation,
@@ -11,6 +12,23 @@ import {
 import { getObservationResult } from "./get-observation-result";
 import { getDefaultEventContent, MAX_CONTENT_LENGTH } from "./shared";
 import i18n from "#/i18n";
+
+const getApplyPatchObservationContent = (event: ApplyPatchObservation): string => {
+  let contentDetails = `\`\`\`\n${event.extras.patch || ""}\n\`\`\``;
+
+  if (
+      event.extras.applied_hunks &&
+      Object.keys(event.extras.applied_hunks).length > 0
+    ) {
+      for (const [action, file] of Object.entries(
+        event.extras.applied_hunks,
+      )) {
+        contentDetails += `✔ ${action} ${file}\n`
+      }
+  }
+
+  return contentDetails;
+}
 
 const getReadObservationContent = (event: ReadObservation): string =>
   `\`\`\`\n${event.content}\n\`\`\``;
@@ -140,11 +158,10 @@ const getTaskTrackingObservationContent = (
   return content;
 };
 
-const getPatchObservationContent = (event: OpenHandsObservation): string =>
-  `\`\`\`\n${event.content}\n\`\`\``;
-
 export const getObservationContent = (event: OpenHandsObservation): string => {
   switch (event.observation) {
+    case "apply_patch":
+      return getApplyPatchObservationContent(event);
     case "read":
       return getReadObservationContent(event);
     case "edit":
@@ -161,10 +178,6 @@ export const getObservationContent = (event: OpenHandsObservation): string => {
       return getRecallObservationContent(event);
     case "task_tracking":
       return getTaskTrackingObservationContent(event);
-    case "patch_success":
-      return getPatchObservationContent(event);
-    case "patch_error":
-      return getPatchObservationContent(event);
     default:
       return getDefaultEventContent(event);
   }
