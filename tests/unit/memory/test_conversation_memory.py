@@ -21,7 +21,7 @@ from openhands.events.event import (
     FileReadSource,
     RecallType,
 )
-from openhands.events.observation import CmdOutputObservation
+from openhands.events.observation import CmdOutputObservation, SuccessObservation
 from openhands.events.observation.agent import (
     MicroagentKnowledge,
     RecallObservation,
@@ -567,6 +567,24 @@ def test_process_events_with_function_calling_observation(conversation_memory):
     assert (
         len(messages) == 2
     )  # should be no messages except system message and initial user message
+
+
+def test_process_events_with_success_observation(conversation_memory):
+    success_obs = SuccessObservation(content='{"status": "success"}')
+
+    initial_user_action = MessageAction(content='Initial user message')
+    initial_user_action._source = EventSource.USER
+
+    messages = conversation_memory.process_events(
+        condensed_history=[success_obs],
+        initial_user_action=initial_user_action,
+        max_message_chars=None,
+        vision_is_active=False,
+    )
+
+    assert len(messages) == 3
+    assert messages[-1].role == 'user'
+    assert messages[-1].content[0].text == '{"status": "success"}'
 
 
 def test_process_events_with_message_action_with_image(conversation_memory):
