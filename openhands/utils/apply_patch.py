@@ -1,6 +1,15 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+"""
+Patch application CLI used by the CodeAct agent and developer tooling.
+
+If your environment cannot import ``openhands`` (for example, when you run the
+command from outside the repository and have not installed the package), you
+can invoke ``python scripts/apply_patch.py`` instead. The wrapper adds the
+repository root to ``PYTHONPATH`` before delegating to this module.
+"""
+
 import enum
 import json
 import os
