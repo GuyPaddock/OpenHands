@@ -140,6 +140,12 @@ const getTaskTrackingObservationContent = (
   return content;
 };
 
+const getSuccessObservationContent = (event: OpenHandsObservation): string =>
+  `\`\`\`\n${event.content}\n\`\`\``;
+
+const getErrorObservationContent = (event: OpenHandsObservation): string =>
+  `\`\`\`\n${event.content}\n\`\`\``;
+
 export const getObservationContent = (event: OpenHandsObservation): string => {
   switch (event.observation) {
     case "read":
@@ -158,6 +164,10 @@ export const getObservationContent = (event: OpenHandsObservation): string => {
       return getRecallObservationContent(event);
     case "task_tracking":
       return getTaskTrackingObservationContent(event);
+    case "success":
+      return getSuccessObservationContent(event);
+    case "error":
+      return getErrorObservationContent(event);
     default:
       return getDefaultEventContent(event);
   }

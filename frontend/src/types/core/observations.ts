@@ -103,6 +103,11 @@ export interface ErrorObservation extends OpenHandsObservationEvent<"error"> {
   };
 }
 
+export interface SuccessObservation extends OpenHandsObservationEvent<"success"> {
+  source: "agent";
+  extras: Record<string, unknown>;
+}
+
 export interface AgentThinkObservation
   extends OpenHandsObservationEvent<"think"> {
   source: "agent";
@@ -173,6 +178,7 @@ export type OpenHandsObservation =
   | ReadObservation
   | EditObservation
   | ErrorObservation
+  | SuccessObservation
   | RecallObservation
   | MCPObservation
   | UserRejectedObservation
