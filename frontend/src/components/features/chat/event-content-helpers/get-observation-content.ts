@@ -140,10 +140,7 @@ const getTaskTrackingObservationContent = (
   return content;
 };
 
-const getSuccessObservationContent = (event: OpenHandsObservation): string =>
-  `\`\`\`\n${event.content}\n\`\`\``;
-
-const getErrorObservationContent = (event: OpenHandsObservation): string =>
+const getPatchObservationContent = (event: OpenHandsObservation): string =>
   `\`\`\`\n${event.content}\n\`\`\``;
 
 export const getObservationContent = (event: OpenHandsObservation): string => {
@@ -165,10 +162,9 @@ export const getObservationContent = (event: OpenHandsObservation): string => {
     case "task_tracking":
       return getTaskTrackingObservationContent(event);
     case "patch_success":
-      return getSuccessObservationContent(event);
-    case "error":
+      return getPatchObservationContent(event);
     case "patch_error":
-      return getErrorObservationContent(event);
+      return getPatchObservationContent(event);
     default:
       return getDefaultEventContent(event);
   }
