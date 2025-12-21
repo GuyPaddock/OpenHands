@@ -8080,22 +8080,6 @@
     "uk": "Записую в <path>{{path}}</path>"
   },
   "ACTION_MESSAGE$APPLY_PATCH": {
-    "en": "Applying patch ({{operation}} <path>{{path}}</path>)",
-    "ja": "パッチを適用中 ({{operation}} <path>{{path}}</path>)",
-    "zh-CN": "正在应用补丁 ({{operation}} <path>{{path}}</path>)",
-    "zh-TW": "正在套用修補程式 ({{operation}} <path>{{path}}</path>)",
-    "ko-KR": "패치를 적용 중입니다 ({{operation}} <path>{{path}}</path>)",
-    "no": "Patch brukes ({{operation}} <path>{{path}}</path>)",
-    "ar": "جارٍ تطبيق التصحيح ({{operation}} <path>{{path}}</path>)",
-    "de": "Patch wird angewendet ({{operation}} <path>{{path}}</path>)",
-    "fr": "Application du correctif ({{operation}} <path>{{path}}</path>)",
-    "it": "Applicazione della patch ({{operation}} <path>{{path}}</path>)",
-    "pt": "Aplicando correção ({{operation}} <path>{{path}}</path>)",
-    "es": "Aplicando parche ({{operation}} <path>{{path}}</path>)",
-    "tr": "Yama uygulanıyor ({{operation}} <path>{{path}}</path>)",
-    "uk": "Застосовується патч ({{operation}} <path>{{path}}</path>)"
-  },
-  "ACTION_MESSAGE$APPLY_PATCH_GENERIC": {
     "en": "Applying patch",
     "ja": "パッチを適用中",
     "zh-CN": "正在应用补丁",
@@ -8288,22 +8272,6 @@
     "uk": "Записав на <path>{{path}}</path>"
   },
   "OBSERVATION_MESSAGE$APPLY_PATCH": {
-    "en": "Applied patch ({{operation}} <path>{{path}}</path>)",
-    "ja": "パッチを適用しました ({{operation}} <path>{{path}}</path>)",
-    "zh-CN": "已应用补丁 ({{operation}} <path>{{path}}</path>)",
-    "zh-TW": "已套用修補程式 ({{operation}} <path>{{path}}</path>)",
-    "ko-KR": "패치를 적용했습니다 ({{operation}} <path>{{path}}</path>)",
-    "no": "Patch ble brukt ({{operation}} <path>{{path}}</path>)",
-    "ar": "تم تطبيق التصحيح ({{operation}} <path>{{path}}</path>)",
-    "de": "Patch angewendet ({{operation}} <path>{{path}}</path>)",
-    "fr": "Correctif appliqué ({{operation}} <path>{{path}}</path>)",
-    "it": "Patch applicata ({{operation}} <path>{{path}}</path>)",
-    "pt": "Correção aplicada ({{operation}} <path>{{path}}</path>)",
-    "es": "Parche aplicado ({{operation}} <path>{{path}}</path>)",
-    "tr": "Yama uygulandı ({{operation}} <path>{{path}}</path>)",
-    "uk": "Патч застосовано ({{operation}} <path>{{path}}</path>)"
-  },
-  "OBSERVATION_MESSAGE$APPLY_PATCH_GENERIC": {
     "en": "Applied patch",
     "ja": "パッチを適用しました",
     "zh-CN": "已应用补丁",

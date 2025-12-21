@@ -49,17 +49,7 @@ const getActionEventTitle = (event: OpenHandsEvent): React.ReactNode => {
 
   switch (actionType) {
     case "ApplyPatchAction":
-      let patchText = event.action.patch || "";
-      let match = patchText.match(/^\*\*\*\s+(Add|Update|Delete) File:\s+(.+)$/m);
-      if (match) {
-          actionKey = "ACTION_MESSAGE$APPLY_PATCH";
-          actionValues = {
-            operation: match[1].trim(),
-            filename: match[2].trim(),
-          };
-      } else {
-          actionKey = "ACTION_MESSAGE$APPLY_PATCH_GENERIC";
-      }
+      actionKey = "ACTION_MESSAGE$APPLY_PATCH";
       break;
     case "ExecuteBashAction":
       actionKey = "ACTION_MESSAGE$RUN";
@@ -123,17 +113,7 @@ const getObservationEventTitle = (event: OpenHandsEvent): React.ReactNode => {
 
   switch (observationType) {
     case "ApplyPatchObservation":
-      let patchText = event.observation.patch || "";
-      let match = patchText.match(/^\*\*\*\s+(Add|Update|Delete) File:\s+(.+)$/m);
-      if (match) {
-          actionKey = "OBSERVATION_MESSAGE$APPLY_PATCH";
-          actionValues = {
-            operation: match[1].trim(),
-            filename: match[2].trim(),
-          };
-      } else {
-          actionKey = "OBSERVATION_MESSAGE$APPLY_PATCH_GENERIC";
-      }
+      actionKey = "OBSERVATION_MESSAGE$APPLY_PATCH";
       break;
     case "ExecuteBashObservation":
       observationKey = "OBSERVATION_MESSAGE$RUN";
