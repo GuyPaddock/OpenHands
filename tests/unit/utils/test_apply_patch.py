@@ -251,3 +251,40 @@ def test_patch_id_propagates_on_failure(tmp_path: pathlib.Path):
     assert proc.returncode != 0
     assert payload["patch_id"] == "propagate"
     assert payload["status"] == "failed"
+
+
+def test_rejects_relative_escape(tmp_path: pathlib.Path):
+    patch = textwrap.dedent(
+        """\
+        *** Begin Patch
+        *** Add File: ../escape.txt
+        sneaky
+        *** End Patch
+        """
+    )
+
+    proc = run_apply_patch(tmp_path, patch, json_mode=True)
+    payload = json.loads(proc.stdout)
+
+    assert proc.returncode != 0
+    assert payload["error_type"] == "permission_error"
+    assert "outside workspace" in payload["message"]
+    assert not (tmp_path.parent / "escape.txt").exists()
+
+
+def test_rejects_absolute_escape(tmp_path: pathlib.Path):
+    patch = textwrap.dedent(
+        """\
+        *** Begin Patch
+        *** Add File: /etc/passwd
+        nope
+        *** End Patch
+        """
+    )
+
+    proc = run_apply_patch(tmp_path, patch, json_mode=True)
+    payload = json.loads(proc.stdout)
+
+    assert proc.returncode != 0
+    assert payload["error_type"] == "permission_error"
+    assert "outside workspace" in payload["message"]

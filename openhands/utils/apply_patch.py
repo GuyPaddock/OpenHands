@@ -16,7 +16,7 @@ import shutil
 import sys
 import tempfile
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 
 # ============================================================
@@ -43,6 +43,10 @@ class PatchParseError(PatchError):
 
 class PatchApplyError(PatchError):
     error_type = "context_mismatch"
+
+
+class PatchPermissionError(PatchApplyError):
+    error_type = "permission_error"
 
 
 class AmbiguousHunkError(PatchApplyError):
@@ -106,6 +110,21 @@ def emit(obj: dict, exit_code: int = 0):
 
 def normalize_lines(text: str) -> List[str]:
     return text.replace("\r\n", "\n").replace("\r", "\n").splitlines()
+
+
+def resolve_patch_path(
+    raw_path: pathlib.Path, workspace_root: pathlib.Path
+) -> Tuple[pathlib.Path, pathlib.Path]:
+    workspace_root = workspace_root.resolve()
+    candidate = raw_path if raw_path.is_absolute() else workspace_root / raw_path
+    resolved = candidate.resolve()
+
+    try:
+        relative = resolved.relative_to(workspace_root)
+    except ValueError:
+        raise PatchPermissionError(f"Invalid path outside workspace: {raw_path}")
+
+    return resolved, relative
 
 
 # ============================================================
@@ -289,43 +308,48 @@ def apply_update(path: pathlib.Path, original: List[str], diff: List[str]) -> Li
 
 
 
-def apply_patch(patch: Patch) -> dict:
-    cwd = pathlib.Path.cwd()
+def apply_patch(
+    patch: Patch, workspace_root: pathlib.Path | str | None = None
+) -> dict:
+    workspace = (
+        pathlib.Path(workspace_root) if workspace_root is not None else pathlib.Path.cwd()
+    ).resolve()
     staging = pathlib.Path(tempfile.mkdtemp(prefix="apply_patch_"))
     applied = []
+    resolved_files: List[tuple[PatchFile, pathlib.Path, pathlib.Path]] = []
 
     try:
         for pf in patch.files:
-            src = cwd / pf.path
-            dst = staging / pf.path
+            target_path, relative_path = resolve_patch_path(pf.path, workspace)
+            resolved_files.append((pf, target_path, relative_path))
+            dst = staging / relative_path
 
             if pf.action == PatchAction.ADD:
-                if src.exists():
+                if target_path.exists():
                     raise PatchApplyError("file_already_exists")
                 dst.parent.mkdir(parents=True, exist_ok=True)
                 dst.write_text("\n".join(pf.diff_lines) + "\n")
 
             elif pf.action == PatchAction.DELETE:
-                if not src.exists():
+                if not target_path.exists():
                     raise PatchApplyError("file_not_found")
 
             elif pf.action == PatchAction.UPDATE:
-                if not src.exists():
+                if not target_path.exists():
                     raise PatchApplyError("file_not_found")
-                orig = normalize_lines(src.read_text())
+                orig = normalize_lines(target_path.read_text())
                 updated = apply_update(pf.path, orig, pf.diff_lines)
                 dst.parent.mkdir(parents=True, exist_ok=True)
                 dst.write_text("\n".join(updated) + "\n")
 
             applied.append({"action": pf.action.value, "file": str(pf.path)})
 
-        for pf in patch.files:
-            src = cwd / pf.path
-            dst = staging / pf.path
+        for pf, target_path, relative_path in resolved_files:
+            dst = staging / relative_path
             if pf.action == PatchAction.DELETE:
-                src.unlink()
+                target_path.unlink()
             else:
-                shutil.move(str(dst), str(src))
+                shutil.move(str(dst), str(target_path))
 
         return {
             "status": "success",
