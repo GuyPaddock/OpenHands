@@ -75,8 +75,7 @@ Here is a list of available Observations:
 - [`FileReadObservation`](../events/observation/files.py)
 - [`FileWriteObservation`](../events/observation/files.py)
 - [`ErrorObservation`](../events/observation/error.py)
-- [`PatchSuccessObservation`](../events/observation/patch_success.py)
-- [`PatchErrorObservation`](../events/observation/patch_error.py)
+- [`ApplyPatchObservation`](../events/observation/apply_patch.py)
 
 You can use `observation.to_dict()` and `observation_from_dict` to serialize and deserialize observations.
 

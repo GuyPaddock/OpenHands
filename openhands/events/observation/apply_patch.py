@@ -5,11 +5,10 @@ from openhands.events.observation.observation import Observation
 
 
 @dataclass
-class PatchErrorObservation(Observation):
-    """Result of a failed apply_patch invocation."""
+class ApplyPatchObservation(Observation):
+    """Result of a successful apply_patch invocation."""
 
-    observation: str = ObservationType.PATCH_ERROR
-    error_id: str = ''
+    observation: str = ObservationType.APPLY_PATCH
 
     @property
     def message(self) -> str:

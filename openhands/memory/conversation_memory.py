@@ -35,7 +35,7 @@ from openhands.events.observation import (
     FileReadObservation,
     IPythonRunCellObservation,
     LoopDetectionObservation,
-    PatchSuccessObservation,
+    ApplyPatchObservation,
     TaskTrackingObservation,
     UserRejectObservation,
 )
@@ -44,7 +44,7 @@ from openhands.events.observation.agent import (
     RecallObservation,
 )
 from openhands.events.observation.error import ErrorObservation
-from openhands.events.observation.patch_error import PatchErrorObservation
+from openhands.events.observation.apply_patch import ApplyPatchObservation
 from openhands.events.observation.mcp import MCPObservation
 from openhands.events.observation.observation import Observation
 from openhands.events.serialization.event import truncate_content
@@ -406,7 +406,7 @@ class ConversationMemory:
             # logger.warning(f'MCPObservation: {obs}')
             text = truncate_content(obs.content, max_message_chars)
             message = Message(role='user', content=[TextContent(text=text)])
-        elif isinstance(obs, PatchSuccessObservation):
+        elif isinstance(obs, ApplyPatchObservation):
             text = truncate_content(obs.message, max_message_chars)
             message = Message(role='user', content=[TextContent(text=text)])
         elif isinstance(obs, IPythonRunCellObservation):
@@ -517,9 +517,6 @@ class ConversationMemory:
             message = Message(role='user', content=[TextContent(text=text)])
         elif isinstance(obs, TaskTrackingObservation):
             text = truncate_content(obs.content, max_message_chars)
-            message = Message(role='user', content=[TextContent(text=text)])
-        elif isinstance(obs, PatchErrorObservation):
-            text = truncate_content(obs.message, max_message_chars)
             message = Message(role='user', content=[TextContent(text=text)])
         elif isinstance(obs, ErrorObservation):
             text = truncate_content(obs.content, max_message_chars)

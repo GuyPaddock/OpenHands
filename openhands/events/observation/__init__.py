@@ -25,8 +25,7 @@ from openhands.events.observation.files import (
 from openhands.events.observation.loop_recovery import LoopDetectionObservation
 from openhands.events.observation.mcp import MCPObservation
 from openhands.events.observation.observation import Observation
-from openhands.events.observation.patch_error import PatchErrorObservation
-from openhands.events.observation.patch_success import PatchSuccessObservation
+from openhands.events.observation.apply_patch import ApplyPatchObservation
 from openhands.events.observation.reject import UserRejectObservation
 from openhands.events.observation.success import SuccessObservation
 from openhands.events.observation.task_tracking import TaskTrackingObservation
@@ -43,10 +42,9 @@ __all__ = [
     'FileWriteObservation',
     'FileEditObservation',
     'ErrorObservation',
-    'PatchErrorObservation',
+    'ApplyPatchObservation',
     'AgentStateChangedObservation',
     'AgentDelegateObservation',
-    'PatchSuccessObservation',
     'SuccessObservation',
     'UserRejectObservation',
     'AgentCondensationObservation',
