@@ -1,6 +1,7 @@
 """Test function calling module."""
 
 import json
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -158,7 +159,11 @@ hello
     actions = response_to_actions(response)
     assert len(actions) == 1
     assert isinstance(actions[0], CmdRunAction)
-    assert "APPLY_PATCH_JSON=1 python -m openhands.utils.apply_patch" in actions[0].command
+    repo_root = Path(__file__).resolve().parents[3].as_posix()
+    expected_prefix = (
+        f'PYTHONPATH="{repo_root}" APPLY_PATCH_JSON=1 python -m openhands.utils.apply_patch'
+    )
+    assert expected_prefix in actions[0].command
     assert 'Patch-ID: demo' in actions[0].command
     assert actions[0].command.rstrip().endswith('PATCH')
 
