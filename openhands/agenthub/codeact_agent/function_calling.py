@@ -3,7 +3,9 @@
 This is similar to the functionality of `CodeActResponseParser`.
 """
 
+import base64
 import json
+import textwrap
 from pathlib import Path
 
 from litellm import (
@@ -181,10 +183,25 @@ def response_to_actions(
 
                 patch_text = arguments['patch']
                 patch_body = patch_text.rstrip('\n')
+                patch_b64 = base64.b64encode(patch_body.encode()).decode()
                 repo_root = REPO_ROOT.as_posix()
-                command = (
-                    f'PYTHONPATH="{repo_root}" APPLY_PATCH_JSON=1 python -m openhands.utils.apply_patch <<\'PATCH\'\n'
-                    f"{patch_body}\nPATCH"
+                command = textwrap.dedent(
+                    f"""PYTHONPATH="{repo_root}" APPLY_PATCH_JSON=1 python - <<'PY'
+import base64
+import pathlib
+import sys
+
+repo_root = pathlib.Path("{repo_root}")
+if str(repo_root) not in sys.path:
+    sys.path.insert(0, str(repo_root))
+
+from openhands.utils import apply_patch as ap
+
+patch_text = base64.b64decode("{patch_b64}").decode()
+patch = ap.parse_patch(patch_text)
+ap.apply_patch(patch)
+PY
+"""
                 )
 
                 action = CmdRunAction(command=command)

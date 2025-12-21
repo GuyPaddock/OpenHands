@@ -1,5 +1,6 @@
 """Test function calling module."""
 
+import base64
 import json
 from pathlib import Path
 from unittest.mock import patch
@@ -161,11 +162,12 @@ hello
     assert isinstance(actions[0], CmdRunAction)
     repo_root = Path(__file__).resolve().parents[3].as_posix()
     expected_prefix = (
-        f'PYTHONPATH="{repo_root}" APPLY_PATCH_JSON=1 python -m openhands.utils.apply_patch'
+        f'PYTHONPATH="{repo_root}" APPLY_PATCH_JSON=1 python - <<\'PY\''
     )
     assert expected_prefix in actions[0].command
-    assert 'Patch-ID: demo' in actions[0].command
-    assert actions[0].command.rstrip().endswith('PATCH')
+    expected_patch_text = patch_text.rstrip('\n')
+    expected_patch_b64 = base64.b64encode(expected_patch_text.encode()).decode()
+    assert expected_patch_b64 in actions[0].command
 
 
 def test_apply_patch_missing_required():
