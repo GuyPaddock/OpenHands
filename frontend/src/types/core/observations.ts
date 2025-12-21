@@ -103,11 +103,12 @@ export interface ErrorObservation extends OpenHandsObservationEvent<"error"> {
   };
 }
 
-export interface PatchErrorObservation extends OpenHandsObservationEvent<"patch_error"> {
+export interface PatchErrorObservation extends Omit<
+  ErrorObservation,
+  "observation" | "source"
+> {
+  observation: "patch_error";
   source: "agent";
-  extras: {
-    error_id?: string;
-  };
 }
 
 export interface SuccessObservation extends OpenHandsObservationEvent<"success"> {
@@ -115,9 +116,11 @@ export interface SuccessObservation extends OpenHandsObservationEvent<"success">
   extras: Record<string, unknown>;
 }
 
-export interface PatchSuccessObservation extends OpenHandsObservationEvent<"patch_success"> {
-  source: "agent";
-  extras: Record<string, unknown>;
+export interface PatchSuccessObservation extends Omit<
+  SuccessObservation,
+  "observation"
+> {
+  observation: "patch_success";
 }
 
 export interface AgentThinkObservation
