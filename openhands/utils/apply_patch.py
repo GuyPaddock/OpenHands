@@ -108,6 +108,24 @@ def emit(obj: dict, exit_code: int = 0):
     sys.exit(exit_code)
 
 
+def format_apply_patch_observation(patch_text: str, result: dict) -> str:
+    formatted_patch = "\n".join(
+        f"> {line}" for line in normalize_lines(patch_text.rstrip("\n"))
+    )
+
+    header = "apply_patch <<'PATCH'"
+    body_lines = [header]
+    if formatted_patch:
+        body_lines.append(formatted_patch)
+    body_lines.append("PATCH")
+
+    summary = "\n".join(body_lines)
+    if result:
+        summary = f"{summary}\n\n{json.dumps(result, indent=2)}"
+
+    return summary
+
+
 def normalize_lines(text: str) -> List[str]:
     return text.replace("\r\n", "\n").replace("\r", "\n").splitlines()
 

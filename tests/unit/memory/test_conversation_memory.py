@@ -38,6 +38,7 @@ from openhands.events.observation.files import FileEditObservation, FileReadObse
 from openhands.events.observation.reject import UserRejectObservation
 from openhands.events.tool import ToolCallMetadata
 from openhands.memory.conversation_memory import ConversationMemory
+from openhands.utils.apply_patch import format_apply_patch_observation
 from openhands.utils.prompt import PromptManager, RepositoryInfo, RuntimeInfo
 
 
@@ -571,7 +572,10 @@ def test_process_events_with_function_calling_observation(conversation_memory):
 
 
 def test_process_events_with_success_observation(conversation_memory):
-    success_obs = SuccessObservation(content='{"status": "success"}')
+    success_content = format_apply_patch_observation(
+        action.patch, {"status": "success"}
+    )
+    success_obs = SuccessObservation(content=success_content)
 
     initial_user_action = MessageAction(content='Initial user message')
     initial_user_action._source = EventSource.USER
@@ -598,7 +602,10 @@ def test_process_events_apply_patch_tool_call(conversation_memory):
         tool_call_id='patch_call_1', function_name='apply_patch'
     )
 
-    success_obs = SuccessObservation(content='{"status": "success"}')
+    success_content = format_apply_patch_observation(
+        action.patch, {"status": "success"}
+    )
+    success_obs = SuccessObservation(content=success_content)
     success_obs._source = EventSource.AGENT
     success_obs.tool_call_metadata = _create_mock_tool_call_metadata(
         tool_call_id='patch_call_1', function_name='apply_patch'
@@ -620,7 +627,7 @@ def test_process_events_apply_patch_tool_call(conversation_memory):
     assert messages[2].tool_calls[0].function.name == 'apply_patch'
     assert messages[3].role == 'tool'
     assert messages[3].tool_call_id == 'patch_call_1'
-    assert messages[3].content[0].text == '{"status": "success"}'
+    assert messages[3].content[0].text == success_content
 
 
 def test_process_events_with_message_action_with_image(conversation_memory):

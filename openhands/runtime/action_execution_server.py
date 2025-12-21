@@ -598,7 +598,8 @@ class ActionExecutor:
             result = patch_utils.apply_patch(
                 patch, workspace_root=Path(self.initial_cwd)
             )
-            return SuccessObservation(json.dumps(result, indent=2))
+            content = patch_utils.format_apply_patch_observation(action.patch, result)
+            return SuccessObservation(content)
         except patch_utils.PatchError as e:
             failure = {
                 "status": "failed",
