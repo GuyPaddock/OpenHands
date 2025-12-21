@@ -35,6 +35,7 @@ from openhands.events.observation import (
     FileReadObservation,
     IPythonRunCellObservation,
     LoopDetectionObservation,
+    PatchSuccessObservation,
     SuccessObservation,
     TaskTrackingObservation,
     UserRejectObservation,
@@ -44,6 +45,7 @@ from openhands.events.observation.agent import (
     RecallObservation,
 )
 from openhands.events.observation.error import ErrorObservation
+from openhands.events.observation.patch_error import PatchErrorObservation
 from openhands.events.observation.mcp import MCPObservation
 from openhands.events.observation.observation import Observation
 from openhands.events.serialization.event import truncate_content
@@ -405,7 +407,7 @@ class ConversationMemory:
             # logger.warning(f'MCPObservation: {obs}')
             text = truncate_content(obs.content, max_message_chars)
             message = Message(role='user', content=[TextContent(text=text)])
-        elif isinstance(obs, SuccessObservation):
+        elif isinstance(obs, (PatchSuccessObservation, SuccessObservation)):
             text = truncate_content(obs.message, max_message_chars)
             message = Message(role='user', content=[TextContent(text=text)])
         elif isinstance(obs, IPythonRunCellObservation):

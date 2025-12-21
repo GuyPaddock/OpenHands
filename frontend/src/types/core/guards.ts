@@ -14,6 +14,7 @@ import {
   ErrorObservation,
   MCPObservation,
   OpenHandsObservation,
+  PatchErrorObservation,
   TaskTrackingObservation,
 } from "./observations";
 import { StatusUpdate } from "./variances";
@@ -52,8 +53,9 @@ export const isAssistantMessage = (
 
 export const isErrorObservation = (
   event: OpenHandsParsedEvent,
-): event is ErrorObservation =>
-  isOpenHandsObservation(event) && event.observation === "error";
+): event is ErrorObservation | PatchErrorObservation =>
+  isOpenHandsObservation(event) &&
+  (event.observation === "error" || event.observation === "patch_error");
 
 export const isCommandAction = (
   event: OpenHandsParsedEvent,
