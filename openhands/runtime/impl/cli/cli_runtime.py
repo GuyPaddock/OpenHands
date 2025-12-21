@@ -695,7 +695,9 @@ class CLIRuntime(Runtime):
         patch = None
         try:
             patch = patch_utils.parse_patch(action.patch)
-            result = patch_utils.apply_patch(patch)
+            result = patch_utils.apply_patch(
+                patch, workspace_root=Path(self._workspace_path)
+            )
             return SuccessObservation(json.dumps(result, indent=2))
         except patch_utils.PatchError as e:
             failure = {
