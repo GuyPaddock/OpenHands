@@ -14,18 +14,13 @@ import { getDefaultEventContent, MAX_CONTENT_LENGTH } from "./shared";
 import i18n from "#/i18n";
 
 const getApplyPatchObservationContent = (event: ApplyPatchObservation): string => {
-  let contentDetails = `\`\`\`\n${event.extras.patch || ""}\n\`\`\``;
+  let contentDetails = '';
 
-  if (
-      event.extras.applied_hunks &&
-      Object.keys(event.extras.applied_hunks).length > 0
-    ) {
-      for (const [action, file] of Object.entries(
-        event.extras.applied_hunks,
-      )) {
-        contentDetails += `✔ ${action} ${file}\n`
-      }
-  }
+  event?.extras?.applied_hunks?.forEach(({ action, file }) => {
+    contentDetails += `✔ ${action} \`${file}\`\n`;
+  });
+
+  contentDetails += `\n\`\`\`${event.extras.patch || ""}\n\`\`\``
 
   return contentDetails;
 }
