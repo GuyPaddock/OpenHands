@@ -16,6 +16,9 @@ from .shell import output_parser
 from .shell import input_parser
 
 
+RESET_SESSION_COMMAND = "__reset_bash_session__"
+
+
 class BashSession:
     """High-level orchestration for running bash commands inside tmux.
 
@@ -70,11 +73,15 @@ class BashSession:
 
         Preserves original behavior:
 
-        - Only blocks when the session state is RUNNING
+        - Only blocks when the session state indicates a command is still running
         - Only blocks for non-input actions (action.is_input is False)
         - Returns the current pane snapshot and a descriptive suffix
         """
-        if self.state.state is not RunState.RUNNING or action.is_input:
+        if self.state.state not in (
+            RunState.RUNNING,
+            RunState.NO_OUTPUT_TIMEOUT,
+            RunState.HARD_TIMEOUT,
+        ) or action.is_input:
             return None
 
         meta = CmdOutputMetadata()
@@ -83,7 +90,9 @@ class BashSession:
             "The previous command is still running - You CANNOT send new "
             "commands until the previous command is completed. "
             "By setting `is_input` to `true`, you can interact with the "
-            f"current process: {TIMEOUT_MESSAGE_TEMPLATE}]"
+            "current process or send Ctrl+C to stop it. "
+            "If the shell is stuck, run the reset command "
+            f"`{RESET_SESSION_COMMAND}` to restart it: {TIMEOUT_MESSAGE_TEMPLATE}]"
         )
         pane_snapshot = self.tmux.capture()
         return CmdOutputObservation(
@@ -211,6 +220,18 @@ class BashSession:
         self.state.state = RunState.IDLE
         self.state.cwd = self.work_dir
 
+    def reset(self) -> None:
+        """Reset the tmux session and clear tracked state."""
+
+        # Tear down any existing session first.
+        self.close()
+
+        # Reset local state trackers to defaults before restarting.
+        self.state = SessionState()
+
+        # Restart the tmux/bash session.
+        self.initialize()
+
     def close(self) -> None:
         """Terminate tmux session."""
         if self.tmux is not None:
@@ -218,6 +239,28 @@ class BashSession:
             self.tmux = None
 
         self.state.state = RunState.IDLE
+
+    def _handle_reset_request(self) -> CmdOutputObservation | ErrorObservation:
+        """Reset the session on demand and return a confirmation observation."""
+
+        try:
+            self.reset()
+        except Exception as exc:  # pragma: no cover - defensive logging path
+            return ErrorObservation(
+                content=(
+                    "Failed to reset the bash session. "
+                    f"Try again or restart the runtime. Details: {exc}"
+                )
+            )
+
+        meta = CmdOutputMetadata()
+        meta.suffix = "[Bash session has been reset. You can run new commands.]"
+
+        return CmdOutputObservation(
+            content="",
+            command=RESET_SESSION_COMMAND,
+            metadata=meta,
+        )
 
     # ------------------------------------------------------------------ #
     # Main API
@@ -244,10 +287,13 @@ class BashSession:
             :class:`ErrorObservation` if the underlying shell/session
             became unusable.
         """
+        command: str = action.command.strip()
+
+        if command == RESET_SESSION_COMMAND:
+            return self._handle_reset_request()
+
         if self.tmux is None:
             return ErrorObservation(content="Bash session is not initialized.")
-
-        command: str = action.command.strip()
 
         # Bare "input"/empty commands are not meaningful in this design.
         if not command:
