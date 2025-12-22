@@ -592,19 +592,20 @@ class ActionExecutor:
         )
 
     async def apply_patch(self, action: ApplyPatchAction) -> Observation:
+        raw_patch = action.patch
         try:
-            patch = patch_utils.parse_patch(action.patch)
+            parsed_patch = patch_utils.parse_patch(raw_patch)
             result = patch_utils.apply_patch(
-                patch, workspace_root=Path(self._initial_cwd)
+                parsed_patch, workspace_root=Path(self._initial_cwd)
             )
             return ApplyPatchObservation(
                 content=result.get("status", None),
-                patch=action.patch,
+                patch=raw_patch,
                 applied_hunks=result.get("applied", []),
             )
         except patch_utils.PatchError as error:
             return ErrorObservation(
-                f'Failed to apply patch ({error.error_type}): {str(error)}'
+                f'Failed to apply patch ({error.error_type}): {str(error)}\nAttempted patch: ```\n{raw_patch}\n```'
             )
 
     async def browse(self, action: BrowseURLAction) -> Observation:
