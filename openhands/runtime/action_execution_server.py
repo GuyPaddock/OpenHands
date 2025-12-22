@@ -600,12 +600,12 @@ class ActionExecutor:
                 parsed_patch, workspace_root=Path(self._initial_cwd)
             )
             return ApplyPatchObservation(
-                content=result.get("status", None),
+                content=result.get('status', None),
                 patch=raw_patch,
-                applied_hunks=result.get("applied", []),
+                applied_hunks=result.get('applied', []),
             )
         except patch_utils.PatchError as error:
-            error_text = f'Failed to apply patch ({error.error_type}): {str(error)}\nAttempted patch: ```\n{raw_patch}\n```'
+            error_text = f'Failed to apply patch ({error.error_type}): {str(error)}\nAttempted patch: \n```\n{raw_patch}\n```'
 
             if isinstance(error, PatchParseError) or isinstance(error, PatchApplyError):
                 error_text += '\nRemember to include a blank space in front of context lines, in place of where +/- would appear on changed lines.'
