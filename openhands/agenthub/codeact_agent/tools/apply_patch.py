@@ -8,17 +8,6 @@ from openhands.llm.tool_names import APPLY_PATCH_TOOL_NAME
 
 _APPLY_PATCH_DESCRIPTION = """Atomic, Codex-style patch tool for creating, updating, and deleting files.
 
-Example:
-```
-*** Begin Patch
-*** Update File: HelloWorld.java
-@@
- public static void main(String[] args) {
-+    System.out.println("Hello, world!");
- }
-*** End Patch
-```
-
 Usage:
 - This tool can be used for creating and editing files in plain-text format.
 - Supports `Add File`, `Update File`, and `Delete File` operations.
@@ -34,8 +23,8 @@ Before using this tool:
 When making edits:
 - Ensure the edit results in idiomatic, correct code.
 - Do not leave the code in a broken state.
-- If making multiple edits in a row to the same file, prefer to send all edits in a single message with multiple
-  calls to this tool, rather than multiple messages with a single call each.
+- If making multiple edits in a row to the same file, prefer to include all edits in the same patch,
+  rather than sending multiple messages with a single `apply_patch` call each.
 - Be mindful of whitespace!
 
 CRITICAL REQUIREMENTS:
