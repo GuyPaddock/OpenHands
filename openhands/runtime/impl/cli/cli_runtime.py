@@ -3,6 +3,7 @@ It does not implement browser functionality.
 """
 
 import asyncio
+import json
 import os
 import select
 import shutil
@@ -30,6 +31,7 @@ from openhands.events.action import (
     BrowseInteractiveAction,
     BrowseURLAction,
     CmdRunAction,
+    ApplyPatchAction,
     FileEditAction,
     FileReadAction,
     FileWriteAction,
@@ -44,12 +46,14 @@ from openhands.events.observation import (
     FileReadObservation,
     FileWriteObservation,
     Observation,
+    ApplyPatchObservation,
 )
 from openhands.integrations.provider import PROVIDER_TOKEN_TYPE
 from openhands.llm.llm_registry import LLMRegistry
 from openhands.runtime.base import Runtime
 from openhands.runtime.plugins import PluginRequirement
 from openhands.runtime.runtime_status import RuntimeStatus
+from openhands.utils import apply_patch as patch_utils
 
 if TYPE_CHECKING:
     from openhands.runtime.utils.windows_bash import WindowsPowershellSession
@@ -683,6 +687,25 @@ class CLIRuntime(Runtime):
                 filepath=action.path,
             ),
         )
+
+    def apply_patch(self, action: ApplyPatchAction) -> Observation:
+        if not self._runtime_initialized:
+            return ErrorObservation('Runtime not initialized')
+
+        try:
+            patch = patch_utils.parse_patch(action.patch)
+            result = patch_utils.apply_patch(
+                patch, workspace_root=Path(self._workspace_path)
+            )
+            return ApplyPatchObservation(
+                content=result.get("status", None),
+                patch=action.patch,
+                applied_hunks=result.get("applied", []),
+            )
+        except patch_utils.PatchError as error:
+            return ErrorObservation(
+                f'Failed to apply patch ({error.error_type}): {str(error)}'
+            )
 
     async def call_tool_mcp(self, action: MCPAction) -> Observation:
         """Execute an MCP tool action in CLI runtime.

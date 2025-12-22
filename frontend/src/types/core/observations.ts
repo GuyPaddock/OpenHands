@@ -103,6 +103,14 @@ export interface ErrorObservation extends OpenHandsObservationEvent<"error"> {
   };
 }
 
+export interface ApplyPatchObservation extends OpenHandsObservationEvent<"apply_patch"> {
+  source: "agent";
+  extras: {
+    patch: string;
+    applied_hunks: {};
+  };
+}
+
 export interface AgentThinkObservation
   extends OpenHandsObservationEvent<"think"> {
   source: "agent";
@@ -173,6 +181,7 @@ export type OpenHandsObservation =
   | ReadObservation
   | EditObservation
   | ErrorObservation
+  | ApplyPatchObservation
   | RecallObservation
   | MCPObservation
   | UserRejectedObservation

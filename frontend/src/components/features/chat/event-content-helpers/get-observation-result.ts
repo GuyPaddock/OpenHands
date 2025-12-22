@@ -30,6 +30,8 @@ export const getObservationResult = (event: OpenHandsObservation) => {
         return hasContent ? "success" : "error";
       }
       return hasContent ? "success" : "error";
+    case "apply_patch":
+      return "success";
     default:
       return "success";
   }

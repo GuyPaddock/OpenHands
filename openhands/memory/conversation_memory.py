@@ -11,6 +11,7 @@ from openhands.events.action import (
     AgentDelegateAction,
     AgentFinishAction,
     AgentThinkAction,
+    ApplyPatchAction,
     BrowseInteractiveAction,
     BrowseURLAction,
     CmdRunAction,
@@ -34,6 +35,7 @@ from openhands.events.observation import (
     FileReadObservation,
     IPythonRunCellObservation,
     LoopDetectionObservation,
+    ApplyPatchObservation,
     TaskTrackingObservation,
     UserRejectObservation,
 )
@@ -42,6 +44,7 @@ from openhands.events.observation.agent import (
     RecallObservation,
 )
 from openhands.events.observation.error import ErrorObservation
+from openhands.events.observation.apply_patch import ApplyPatchObservation
 from openhands.events.observation.mcp import MCPObservation
 from openhands.events.observation.observation import Observation
 from openhands.events.serialization.event import truncate_content
@@ -190,7 +193,7 @@ class ConversationMemory:
         """Converts an action into a message format that can be sent to the LLM.
 
         This method handles different types of actions and formats them appropriately:
-        1. For tool-based actions (AgentDelegate, CmdRun, IPythonRunCell, FileEdit) and agent-sourced AgentFinish:
+        1. For tool-based actions (AgentDelegate, CmdRun, IPythonRunCell, FileEdit, ApplyPatch) and agent-sourced AgentFinish:
             - In function calling mode: Stores the LLM's response in pending_tool_call_action_messages
             - In non-function calling mode: Creates a message with the action string
         2. For MessageActions: Creates a message with the text content and optional image content
@@ -225,6 +228,7 @@ class ConversationMemory:
             (
                 AgentDelegateAction,
                 AgentThinkAction,
+                ApplyPatchAction,
                 IPythonRunCellAction,
                 FileEditAction,
                 FileReadAction,
@@ -401,6 +405,9 @@ class ConversationMemory:
         elif isinstance(obs, MCPObservation):
             # logger.warning(f'MCPObservation: {obs}')
             text = truncate_content(obs.content, max_message_chars)
+            message = Message(role='user', content=[TextContent(text=text)])
+        elif isinstance(obs, ApplyPatchObservation):
+            text = truncate_content(obs.message, max_message_chars)
             message = Message(role='user', content=[TextContent(text=text)])
         elif isinstance(obs, IPythonRunCellObservation):
             text = obs.content

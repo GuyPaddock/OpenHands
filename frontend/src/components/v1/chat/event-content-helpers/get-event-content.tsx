@@ -48,6 +48,9 @@ const getActionEventTitle = (event: OpenHandsEvent): React.ReactNode => {
   let actionValues: Record<string, unknown> = {};
 
   switch (actionType) {
+    case "ApplyPatchAction":
+      actionKey = "ACTION_MESSAGE$APPLY_PATCH";
+      break;
     case "ExecuteBashAction":
       actionKey = "ACTION_MESSAGE$RUN";
       actionValues = {
@@ -109,6 +112,9 @@ const getObservationEventTitle = (event: OpenHandsEvent): React.ReactNode => {
   let observationValues: Record<string, unknown> = {};
 
   switch (observationType) {
+    case "ApplyPatchObservation":
+      actionKey = "OBSERVATION_MESSAGE$APPLY_PATCH";
+      break;
     case "ExecuteBashObservation":
       observationKey = "OBSERVATION_MESSAGE$RUN";
       observationValues = {

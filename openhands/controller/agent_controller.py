@@ -62,6 +62,7 @@ from openhands.events.action import (
     BrowseInteractiveAction,
     ChangeAgentStateAction,
     CmdRunAction,
+    ApplyPatchAction,
     FileEditAction,
     FileReadAction,
     IPythonRunCellAction,
@@ -983,6 +984,7 @@ class AgentController:
                 or type(action) is IPythonRunCellAction
                 or type(action) is BrowseInteractiveAction
                 or type(action) is FileEditAction
+                or type(action) is ApplyPatchAction
                 or type(action) is FileReadAction
             ):
                 # Handle security risk analysis using the dedicated method

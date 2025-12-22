@@ -19,7 +19,7 @@
     "message": "Reading file: /workspace",
     "action": "read",
     "tool_call_metadata": {
-      "function_name": "str_replace_editor",
+      "function_name": "view_file",
       "tool_call_id": "toolu_01USom24cuiyvAembLhEryrn",
       "model_response": {
         "id": "chatcmpl-90c35dea-eb25-484c-aaa7-d9d00048f64a",
@@ -38,8 +38,8 @@
                 {
                   "index": 1,
                   "function": {
-                    "arguments": "{\"command\": \"view\", \"path\": \"/workspace\"}",
-                    "name": "str_replace_editor"
+                    "arguments": "{\"path\": \"/workspace\", \"view_range\": null, \"security_risk\": \"LOW\"}",
+                    "name": "view_file"
                   },
                   "id": "toolu_01USom24cuiyvAembLhEryrn",
                   "type": "function"
@@ -83,7 +83,7 @@
     "cause": 3,
     "observation": "read",
     "tool_call_metadata": {
-      "function_name": "str_replace_editor",
+      "function_name": "view_file",
       "tool_call_id": "toolu_01USom24cuiyvAembLhEryrn",
       "model_response": {
         "id": "chatcmpl-90c35dea-eb25-484c-aaa7-d9d00048f64a",
@@ -102,8 +102,8 @@
                 {
                   "index": 1,
                   "function": {
-                    "arguments": "{\"command\": \"view\", \"path\": \"/workspace\"}",
-                    "name": "str_replace_editor"
+                    "arguments": "{\"path\": \"/workspace\", \"view_range\": null, \"security_risk\": \"LOW\"}",
+                    "name": "view_file"
                   },
                   "id": "toolu_01USom24cuiyvAembLhEryrn",
                   "type": "function"
@@ -276,7 +276,7 @@
     "message": "Reading file: /workspace",
     "action": "read",
     "tool_call_metadata": {
-      "function_name": "str_replace_editor",
+      "function_name": "view_file",
       "tool_call_id": "toolu_01DodVjoeVmEY3gU5ALbqmGj",
       "model_response": {
         "id": "chatcmpl-ea298ce5-bc1c-435d-b5f9-6eb6e6e864df",
@@ -295,8 +295,8 @@
                 {
                   "index": 1,
                   "function": {
-                    "arguments": "{\"command\": \"view\", \"path\": \"/workspace\"}",
-                    "name": "str_replace_editor"
+                    "arguments": "{\"path\": \"/workspace\", \"view_range\": null, \"security_risk\": \"LOW\"}",
+                    "name": "view_file"
                   },
                   "id": "toolu_01DodVjoeVmEY3gU5ALbqmGj",
                   "type": "function"
@@ -340,7 +340,7 @@
     "cause": 7,
     "observation": "read",
     "tool_call_metadata": {
-      "function_name": "str_replace_editor",
+      "function_name": "view_file",
       "tool_call_id": "toolu_01DodVjoeVmEY3gU5ALbqmGj",
       "model_response": {
         "id": "chatcmpl-ea298ce5-bc1c-435d-b5f9-6eb6e6e864df",
@@ -359,8 +359,8 @@
                 {
                   "index": 1,
                   "function": {
-                    "arguments": "{\"command\": \"view\", \"path\": \"/workspace\"}",
-                    "name": "str_replace_editor"
+                    "arguments": "{\"path\": \"/workspace\", \"view_range\": null, \"security_risk\": \"LOW\"}",
+                    "name": "view_file"
                   },
                   "id": "toolu_01DodVjoeVmEY3gU5ALbqmGj",
                   "type": "function"

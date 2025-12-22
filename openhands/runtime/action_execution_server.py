@@ -42,12 +42,14 @@ from openhands.events.action import (
     BrowseInteractiveAction,
     BrowseURLAction,
     CmdRunAction,
+    ApplyPatchAction,
     FileEditAction,
     FileReadAction,
     FileWriteAction,
     IPythonRunCellAction,
 )
 from openhands.events.event import FileEditSource, FileReadSource
+from openhands.utils import apply_patch as patch_utils
 from openhands.events.observation import (
     CmdOutputObservation,
     ErrorObservation,
@@ -57,6 +59,7 @@ from openhands.events.observation import (
     FileWriteObservation,
     IPythonRunCellObservation,
     Observation,
+    ApplyPatchObservation,
 )
 from openhands.events.serialization import event_from_dict, event_to_dict
 from openhands.runtime.browser import browse
@@ -75,6 +78,7 @@ from openhands.runtime.utils.system_stats import (
     get_system_stats,
     update_last_execution_time,
 )
+from openhands.utils.apply_patch import PatchParseError, PatchApplyError
 from openhands.utils.async_utils import call_sync_from_async, wait_all
 
 if sys.platform == 'win32':
@@ -587,6 +591,26 @@ class ActionExecutor:
                 filepath=action.path,
             ),
         )
+
+    async def apply_patch(self, action: ApplyPatchAction) -> Observation:
+        raw_patch = action.patch
+        try:
+            parsed_patch = patch_utils.parse_patch(raw_patch)
+            result = patch_utils.apply_patch(
+                parsed_patch, workspace_root=Path(self._initial_cwd)
+            )
+            return ApplyPatchObservation(
+                content=result.get('status', None),
+                patch=raw_patch,
+                applied_hunks=result.get('applied', []),
+            )
+        except patch_utils.PatchError as error:
+            error_text = f'Failed to apply patch ({error.error_type}): {str(error)}\nAttempted patch: \n```\n{raw_patch}\n```'
+
+            if isinstance(error, PatchParseError) or isinstance(error, PatchApplyError):
+                error_text += '\nRemember to include a blank space in front of context lines, in place of where +/- would appear on changed lines.'
+
+            return ErrorObservation(error_text)
 
     async def browse(self, action: BrowseURLAction) -> Observation:
         if self.browser is None:

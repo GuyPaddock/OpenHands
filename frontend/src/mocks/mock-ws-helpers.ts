@@ -123,7 +123,7 @@ export const createMockAgentErrorEvent = (
   id: "error-event-123",
   timestamp: new Date().toISOString(),
   source: "agent",
-  tool_name: "str_replace_editor",
+  tool_name: "apply_patch",
   tool_call_id: "tool-call-456",
   error: "Failed to execute command: Permission denied",
   ...overrides,
