@@ -78,6 +78,7 @@ from openhands.runtime.utils.system_stats import (
     get_system_stats,
     update_last_execution_time,
 )
+from openhands.utils.apply_patch import PatchParseError, PatchApplyError
 from openhands.utils.async_utils import call_sync_from_async, wait_all
 
 if sys.platform == 'win32':
@@ -604,9 +605,12 @@ class ActionExecutor:
                 applied_hunks=result.get("applied", []),
             )
         except patch_utils.PatchError as error:
-            return ErrorObservation(
-                f'Failed to apply patch ({error.error_type}): {str(error)}\nAttempted patch: ```\n{raw_patch}\n```'
-            )
+            error_text = f'Failed to apply patch ({error.error_type}): {str(error)}\nAttempted patch: ```\n{raw_patch}\n```'
+
+            if isinstance(error, PatchParseError) or isinstance(error, PatchApplyError):
+                error_text += '\nRemember to include a blank space in front of context lines, in place of where +/- would appear on changed lines.'
+
+            return ErrorObservation(error_text)
 
     async def browse(self, action: BrowseURLAction) -> Observation:
         if self.browser is None:
