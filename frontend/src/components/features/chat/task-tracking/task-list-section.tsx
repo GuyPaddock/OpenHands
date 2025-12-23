@@ -8,7 +8,7 @@ interface TaskListSectionProps {
   taskList: Array<{
     id: string;
     title: string;
-    status: "todo" | "in_progress" | "done";
+    status: "todo" | "in_progress" | "done" | "blocked";
     notes?: string;
   }>;
 }

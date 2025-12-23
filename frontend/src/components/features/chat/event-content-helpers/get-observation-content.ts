@@ -134,6 +134,7 @@ const getTaskTrackingObservationContent = (
           todo: "⏳",
           in_progress: "🔄",
           done: "✅",
+          blocked: "🧱",
         }[task.status] || "❓";
 
       content += `\n${index + 1}. ${statusIcon} **[${task.status.toUpperCase().replace("_", " ")}]** ${task.title}`;

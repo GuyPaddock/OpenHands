@@ -163,7 +163,7 @@ export interface TaskTrackingObservation
     task_list: Array<{
       id: string;
       title: string;
-      status: "todo" | "in_progress" | "done";
+      status: "todo" | "in_progress" | "done" | "blocked";
       notes?: string;
     }>;
   };

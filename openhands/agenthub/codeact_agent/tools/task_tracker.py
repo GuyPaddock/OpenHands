@@ -83,7 +83,7 @@ def create_task_tracker_tool() -> ChatCompletionToolParam:
                                 'status': {
                                     'type': 'string',
                                     'description': 'Current task status',
-                                    'enum': ['todo', 'in_progress', 'done'],
+                                    'enum': ['todo', 'in_progress', 'done', 'blocked'],
                                 },
                                 'notes': {
                                     'type': 'string',

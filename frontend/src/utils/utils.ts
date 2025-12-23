@@ -561,6 +561,8 @@ export const getStatusIcon = (status: string) => {
       return "🔄";
     case "done":
       return "✅";
+    case "blocked":
+      return "🧱";
     default:
       return "❓";
   }
@@ -577,6 +579,9 @@ export const getStatusClassName = (status: string) => {
   }
   if (status === "in_progress") {
     return "bg-yellow-800 text-yellow-200";
+  }
+  if (status === "blocked") {
+    return "bg-red-800 text-red-200";
   }
   return "bg-gray-700 text-gray-300";
 };

@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import CircleIcon from "#/icons/u-circle.svg?react";
 import CheckCircleIcon from "#/icons/u-check-circle.svg?react";
 import LoadingIcon from "#/icons/loading.svg?react";
+import ErrorIcon from "#/icons/circle-error.svg?react";
 import { I18nKey } from "#/i18n/declaration";
 import { cn } from "#/utils/utils";
 import { Typography } from "#/ui/typography";
@@ -11,7 +12,7 @@ interface TaskItemProps {
   task: {
     id: string;
     title: string;
-    status: "todo" | "in_progress" | "done";
+    status: "todo" | "in_progress" | "done" | "blocked";
     notes?: string;
   };
 }
@@ -27,6 +28,8 @@ export function TaskItem({ task }: TaskItemProps) {
         return <LoadingIcon className="w-4 h-4 text-[#ffffff]" />;
       case "done":
         return <CheckCircleIcon className="w-4 h-4 text-[#A3A3A3]" />;
+      case "blocked":
+        return <ErrorIcon className="w-4 h-4 text-[#A3A3A3]" />;
       default:
         return <CircleIcon className="w-4 h-4 text-[#ffffff]" />;
     }

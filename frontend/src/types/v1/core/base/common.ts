@@ -8,9 +8,9 @@ export interface TaskItem {
    */
   notes: string;
   /**
-   * The current status of the task. One of 'todo', 'in_progress', or 'done'.
+   * The current status of the task. One of 'todo', 'in_progress', 'done', or 'blocked'.
    */
-  status: "todo" | "in_progress" | "done";
+  status: "todo" | "in_progress" | "done" | "blocked";
 }
 
 export interface CmdOutputMetadata {

@@ -979,6 +979,9 @@ fi
                 task_file_path = f'{conversation_dir}TASKS.md'
 
                 if action.command == 'plan':
+                    # Validate that the task list is correctly populated.
+                    self._validate_task_list(action.task_list)
+
                     # Write the serialized task list to the session directory
                     content = '# Task List\n\n'
                     for i, task in enumerate(action.task_list, 1):
@@ -986,6 +989,7 @@ fi
                             'todo': '⏳',
                             'in_progress': '🔄',
                             'done': '✅',
+                            'blocked': '🧱',
                         }.get(task.get('status', 'todo'), '⏳')
                         content += f'{i}. {status_icon} {task.get("title", "")}\n{task.get("notes", "")}\n'
 
@@ -1253,6 +1257,48 @@ fi
 
         self.git_handler.set_cwd(git_cwd)
         return self.git_handler.get_current_branch()
+
+
+    # ====================================================================
+    # Task Tracker
+    # ====================================================================
+
+    @classmethod
+    def _validate_task_list(cls, task_list: list[dict[str, str]]) -> None:
+        def render_keys_error(error_prefix: str,
+                              task_identifier: str,
+                              keys: set[str]) -> ErrorObservation:
+            keys_str = ",".join(keys)
+            return ErrorObservation(
+                f"Task list was not updated: {error_prefix} in task {task_identifier}: [{keys_str}]"
+            )
+
+        for i, task in enumerate(task_list, 1):
+            identifier = f"ID '{task_id}'" if (task_id := task.get("id")) else f"Task #{i}"
+
+            required_keys = {"id", "title", "status"}
+            optional_keys = {"notes"}
+
+            task_keys = task.keys()
+            unexpected_keys = task_keys - required_keys - optional_keys
+            missing_keys = task_keys - required_keys
+            empty_required_keys = {
+                k for k, v in task.items()
+                if k in required_keys and len(v.strip()) == 0
+            }
+
+            if unexpected_keys:
+                render_keys_error("unexpected keys", identifier, unexpected_keys)
+
+            if missing_keys:
+                render_keys_error("required keys are missing", identifier, missing_keys)
+
+            if empty_required_keys:
+                render_keys_error("required keys are empty but must not be", identifier, empty_required_keys)
+
+    # ====================================================================
+    # Lifecycle Events
+    # ====================================================================
 
     @property
     def additional_agent_instructions(self) -> str:
