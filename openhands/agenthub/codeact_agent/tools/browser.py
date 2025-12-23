@@ -19,6 +19,9 @@ _BROWSER_DESCRIPTION = """Interact with the browser using Python code. Use it ON
 
 See the description of "code" parameter for more details.
 
+The following sections DEFINE REQUIRED BEHAVIOR when using this tool. They ARE NOT optional.
+
+<TOOL_USAGE_OVERVIEW>
 Multiple actions can be provided at once, but will be executed sequentially without any feedback from the page.
 More than 2-3 actions usually leads to failure or unexpected behavior. Example:
 fill('a12', 'example with "quotes"')
@@ -29,6 +32,7 @@ You can also use the browser to view pdf, png, jpg files.
 You should first check the content of /tmp/oh-server-url to get the server url, and then use it to view the file by `goto("{server_url}/view?path={absolute_file_path}")`.
 For example: `goto("http://localhost:8000/view?path=/workspace/test_document.pdf")`
 Note: The file should be downloaded to the local machine first before using the browser to view it.
+</TOOL_USAGE_OVERVIEW>
 """
 
 _BROWSER_TOOL_DESCRIPTION = """

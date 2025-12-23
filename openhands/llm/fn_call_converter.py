@@ -337,10 +337,10 @@ def get_example_for_tools(tools: list[dict]) -> str:
     if not available_tools:
         return ''
 
-    example = """Here's a running example of how to perform a task with the provided tools.
+    example = """<EXAMPLES>
+Here's a running example of how to perform a task with the provided tools.
 
---------------------- START OF EXAMPLE ---------------------
-
+<EXAMPLE ID="1">
 USER: Create a list of numbers from 1 to 10, and display them in a web page at port 5000.
 
 """
@@ -375,11 +375,11 @@ USER: Create a list of numbers from 1 to 10, and display them in a web page at p
         example += TOOL_EXAMPLES['finish']['example']
 
     example += """
---------------------- END OF EXAMPLE ---------------------
+</EXAMPLE>
 
 Do NOT assume the environment is the same as in the example above.
 
---------------------- NEW TASK DESCRIPTION ---------------------
+<NEW_TASK_DESCRIPTION>
 """
     example = example.lstrip()
 
@@ -389,7 +389,7 @@ Do NOT assume the environment is the same as in the example above.
 IN_CONTEXT_LEARNING_EXAMPLE_PREFIX = get_example_for_tools
 
 IN_CONTEXT_LEARNING_EXAMPLE_SUFFIX = """
---------------------- END OF NEW TASK DESCRIPTION ---------------------
+</NEW_TASK_DESCRIPTION>
 
 PLEASE follow the format strictly! PLEASE EMIT ONE AND ONLY ONE FUNCTION CALL PER MESSAGE.
 """
@@ -439,11 +439,16 @@ def convert_tools_to_description(tools: list[dict]) -> str:
         fn = tool['function']
         if i > 0:
             ret += '\n'
-        ret += f'---- BEGIN FUNCTION #{i + 1}: {fn["name"]} ----\n'
-        ret += f'Description: {fn["description"]}\n'
+        ret += f'<FUNCTION ID="{i + 1}" NAME="{fn["name"]}">\n'
+        ret += f"""<TOOL_DESCRIPTION>
+{fn["description"]}
 
+Failure to follow the rules and workflow in this description is considered incorrect tool usage.
+</TOOL_DESCRIPTION>
+"""
+
+        ret += '<PARAMETERS>\n'
         if 'parameters' in fn:
-            ret += 'Parameters:\n'
             properties = fn['parameters'].get('properties', {})
             required_params = set(fn['parameters'].get('required', []))
 
@@ -467,7 +472,8 @@ def convert_tools_to_description(tools: list[dict]) -> str:
         else:
             ret += 'No parameters are required for this function.\n'
 
-        ret += f'---- END FUNCTION #{i + 1} ----\n'
+        ret += '</PARAMETERS>\n'
+        ret += '</FUNCTION>\n'
     return ret
 
 

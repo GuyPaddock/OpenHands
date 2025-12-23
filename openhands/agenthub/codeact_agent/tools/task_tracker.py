@@ -4,17 +4,19 @@ from openhands.llm.tool_names import TASK_TRACKER_TOOL_NAME
 
 _DETAILED_TASK_TRACKER_DESCRIPTION = """
 This tool provides structured task management capabilities for development workflows.
-The following sections DEFINE REQUIRED BEHAVIOR when using this tool. They ARE NOT optional.
+
 Use this tool to maintain the task plan in accordance with TASK_MANAGEMENT_POLICY in the system prompt.
 Use it to keep tasks, statuses, and progress in sync with the plan you have communicated to the user.
 
-<USAGE_OVERVIEW>
+The following sections DEFINE REQUIRED BEHAVIOR when using this tool. They ARE NOT optional.
+
+<TOOL_USAGE_OVERVIEW>
 - Use task_tracker for multi-step or multi-phase work, or when the user requests structured planning.
 - Do not use task_tracker for trivial or single-step tasks where tracking adds no value.
 - If unsure whether the user wants formal task tracking for a small task, ask first.
-</USAGE_OVERVIEW>
+</TOOL_USAGE_OVERVIEW>
 
-<CORE_BEHAVIORS>
+<TOOL_CORE_BEHAVIORS>
 Adhere to TASK_MANAGEMENT_POLICY:
 - Maintain a structured plan with clear, actionable tasks.
 - Only one task should be in_progress at a time.
@@ -26,29 +28,27 @@ Adhere to TASK_MANAGEMENT_POLICY:
   - Only remove tasks when they are completed, clearly invalid, or explicitly de-scoped with user approval.
   - Prefer refining/updating tasks over replacing the plan wholesale.
 - If a task cannot proceed, mark it as blocked, explain why, and ask for clarification.
-</CORE_BEHAVIORS>
+</TOOL_CORE_BEHAVIORS>
 
-<STATUS_SEMANTICS>
+<TOOL_STATUS_SEMANTICS>
 - todo: defined but not started.
 - in_progress: currently being executed (maintain a single active focus).
 - done: fully completed.
 - blocked: cannot proceed without input, resources, or resolution
-</STATUS_SEMANTICS>
+</TOOL_STATUS_SEMANTICS>
 
-<RECOMMENDED_WORKFLOW>
+<TOOL_RECOMMENDED_WORKFLOW>
 1. Before changing the plan, call task_tracker with `command="view"` to see the current tasks and statuses.
 2. When planning or updating, use `command="plan"` with a complete task_list that reflects the full known plan.
 3. Update task statuses as work progresses (todo → in_progress → done or blocked).
 4. After any substantial change to the plan, summarize the updated tasks and statuses to the user.
-</RECOMMENDED_WORKFLOW>
+</TOOL_RECOMMENDED_WORKFLOW>
 
-<COUNTER_EXAMPLES>
+<TOOL_COUNTER_EXAMPLES>
 When NOT to use this tool:
 - Single, simple information requests (e.g., "What is the syntax for a for loop in JavaScript?")
 - Very small, atomic edits (e.g., "Add a docstring to this one function") where a plan would add overhead.
-</COUNTER_EXAMPLES>
-
-Failure to follow the rules and workflow in this description is considered incorrect tool usage.
+</TOOL_COUNTER_EXAMPLES>
 """
 
 
