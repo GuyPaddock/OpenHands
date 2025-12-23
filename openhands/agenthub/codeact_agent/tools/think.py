@@ -4,6 +4,10 @@ _THINK_DESCRIPTION = """Use the tool to think about something. It will not obtai
 
 The following sections DEFINE REQUIRED BEHAVIOR when using this tool. They ARE NOT optional.
 
+<TOOL_USAGE>
+Use this tool in place of <think> tags. Do not use <think> tags.
+</TOOL_USAGE>
+
 <TOOL_RECOMMENDED_WORKFLOW>
 1. When exploring a repository and discovering the source of a bug, call this tool to brainstorm several unique ways of fixing the bug, and assess which change(s) are likely to be simplest and most effective.
 2. After receiving test results, use this tool to brainstorm ways to fix failing tests.
