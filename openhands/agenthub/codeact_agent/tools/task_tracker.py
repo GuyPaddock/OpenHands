@@ -135,30 +135,13 @@ When uncertain, favor using this tool. Proactive task management demonstrates
 systematic approach and ensures comprehensive requirement fulfillment.
 """
 
-_SHORT_TASK_TRACKER_DESCRIPTION = """Provides structured task management for development workflows, enabling progress
-tracking and systematic organization of complex coding activities.
 
-* Apply to multi-phase projects (3+ distinct steps) or when managing multiple user requirements
-* Update status (todo/in_progress/done) dynamically throughout work
-* Maintain single active task focus at any time
-* Mark completion immediately upon task finish
-* Decompose complex work into manageable, actionable units
-"""
-
-
-def create_task_tracker_tool(
-    use_short_description: bool = False,
-) -> ChatCompletionToolParam:
-    description = (
-        _SHORT_TASK_TRACKER_DESCRIPTION
-        if use_short_description
-        else _DETAILED_TASK_TRACKER_DESCRIPTION
-    )
+def create_task_tracker_tool() -> ChatCompletionToolParam:
     return ChatCompletionToolParam(
         type='function',
         function=ChatCompletionToolParamFunctionChunk(
             name=TASK_TRACKER_TOOL_NAME,
-            description=description,
+            description=_DETAILED_TASK_TRACKER_DESCRIPTION,
             parameters={
                 'type': 'object',
                 'properties': {

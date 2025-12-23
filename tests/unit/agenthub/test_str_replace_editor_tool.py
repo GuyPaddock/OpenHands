@@ -185,9 +185,7 @@ class TestToolCreation:
     def test_tool_creation_short_description(self):
         """Test tool creation with short description still has correct path."""
         with patch.dict(os.environ, {'SANDBOX_VOLUMES': '/host/app:/workspace:rw'}):
-            tool = create_str_replace_editor_tool(
-                use_short_description=True, runtime_type='local'
-            )
+            tool = create_str_replace_editor_tool(runtime_type='local')
             path_description = tool['function']['parameters']['properties']['path'][
                 'description'
             ]

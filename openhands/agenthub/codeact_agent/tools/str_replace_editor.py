@@ -42,18 +42,6 @@ CRITICAL REQUIREMENTS FOR USING THIS TOOL:
 Remember: when making multiple file edits in a row to the same file, you should prefer to send all edits in a single message with multiple calls to this tool, rather than multiple messages with a single call each.
 """
 
-_SHORT_STR_REPLACE_EDITOR_DESCRIPTION = """Custom editing tool for viewing, creating and editing files in plain-text format
-* State is persistent across command calls and discussions with the user
-* If `path` is a file, `view` displays the result of applying `cat -n`. If `path` is a directory, `view` lists non-hidden files and directories up to 2 levels deep
-* The `create` command cannot be used if the specified `path` already exists as a file
-* If a `command` generates a long output, it will be truncated and marked with `<response clipped>`
-* The `undo_edit` command will revert the last edit made to the file at `path`
-Notes for using the `str_replace` command:
-* The `old_str` parameter should match EXACTLY one or more consecutive lines from the original file. Be mindful of whitespaces!
-* If the `old_str` parameter is not unique in the file, the replacement will not be performed. Make sure to include enough context in `old_str` to make it unique
-* The `new_str` parameter should contain the edited lines that should replace the `old_str`
-"""
-
 
 def _get_workspace_mount_path_from_env(runtime_type: str | None = None) -> str:
     """Get the workspace mount path from SANDBOX_VOLUMES environment variable.
@@ -90,7 +78,6 @@ def _get_workspace_mount_path_from_env(runtime_type: str | None = None) -> str:
 
 
 def create_str_replace_editor_tool(
-    use_short_description: bool = False,
     workspace_mount_path_in_sandbox: str | None = None,
     runtime_type: str | None = None,
 ) -> ChatCompletionToolParam:
@@ -100,16 +87,11 @@ def create_str_replace_editor_tool(
             runtime_type
         )
 
-    description = (
-        _SHORT_STR_REPLACE_EDITOR_DESCRIPTION
-        if use_short_description
-        else _DETAILED_STR_REPLACE_EDITOR_DESCRIPTION
-    )
     return ChatCompletionToolParam(
         type='function',
         function=ChatCompletionToolParamFunctionChunk(
             name=STR_REPLACE_EDITOR_TOOL_NAME,
-            description=description,
+            description=_DETAILED_STR_REPLACE_EDITOR_DESCRIPTION,
             parameters={
                 'type': 'object',
                 'properties': {

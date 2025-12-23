@@ -33,23 +33,13 @@ _DETAILED_BASH_DESCRIPTION = """Execute a bash command in the terminal within a 
 * Output truncation: If the output exceeds a maximum length, it will be truncated before being returned.
 """
 
-_SHORT_BASH_DESCRIPTION = """Execute a bash command in the terminal.
-* Long running commands: For commands that may run indefinitely, it should be run in the background and the output should be redirected to a file, e.g. command = `python3 app.py > server.log 2>&1 &`. For commands that need to run for a specific duration, you can set the "timeout" argument to specify a hard timeout in seconds.
-* Interact with running process: If a bash command returns exit code `-1`, this means the process is not yet finished. By setting `is_input` to `true`, the assistant can interact with the running process and send empty `command` to retrieve any additional logs, or send additional text (set `command` to the text) to STDIN of the running process, or send command like `C-c` (Ctrl+C), `C-d` (Ctrl+D), `C-z` (Ctrl+Z) to interrupt the process.
-* One command at a time: You can only execute one bash command at a time. If you need to run multiple commands sequentially, you can use `&&` or `;` to chain them together."""
 
-
-def create_cmd_run_tool(
-    use_short_description: bool = False,
-) -> ChatCompletionToolParam:
-    description = (
-        _SHORT_BASH_DESCRIPTION if use_short_description else _DETAILED_BASH_DESCRIPTION
-    )
+def create_cmd_run_tool() -> ChatCompletionToolParam:
     return ChatCompletionToolParam(
         type='function',
         function=ChatCompletionToolParamFunctionChunk(
             name=EXECUTE_BASH_TOOL_NAME,
-            description=refine_prompt(description),
+            description=refine_prompt(_DETAILED_BASH_DESCRIPTION),
             parameters={
                 'type': 'object',
                 'properties': {
