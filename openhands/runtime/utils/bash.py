@@ -121,6 +121,7 @@ class BashSession:
             # IMPORTANT: Escape special chars before sending to tmux.
             to_send = input_parser.escape_bash_special_chars(to_send)
             self.state.state = RunState.RUNNING
+            self.state.last_command = command
 
         return to_send
 
@@ -169,6 +170,35 @@ class BashSession:
         obs = self._handle_hard_timeout(command, pane, timeout)
         self.state.state = RunState.HARD_TIMEOUT
         return obs
+
+    def _poll_running_command_output(self) -> CmdOutputObservation | ErrorObservation:
+        """Poll the current pane to surface new output for a running command."""
+
+        pane_or_error = self._capture_pane_or_error()
+        if isinstance(pane_or_error, ErrorObservation):
+            return pane_or_error
+
+        pane: str = pane_or_error
+        prompts = prompt_detector.find_prompts(pane)
+        last_command = self.state.last_command
+
+        # If a prompt is now visible, the previous command has completed.
+        if prompts:
+            return self._finalize_completed(last_command, pane, prompts[-1])
+
+        # Otherwise, return the active pane content while keeping the session in
+        # a running state.
+        active_pane_content = output_parser.get_active_pane_content(pane)
+        if last_command:
+            active_pane_content = output_parser.remove_command_prefix(
+                active_pane_content, last_command
+            )
+
+        return CmdOutputObservation(
+            content=active_pane_content.rstrip(),
+            command=last_command,
+            metadata=CmdOutputMetadata(),
+        )
 
     # ------------------------------------------------------------------ #
     # Lifecycle helpers
@@ -295,10 +325,26 @@ class BashSession:
         if self.tmux is None:
             return ErrorObservation(content="Bash session is not initialized.")
 
-        # Bare "input"/empty commands are not meaningful in this design.
         if not command:
+            # Empty non-input commands attempt to re-fetch output/logs.
+            if not action.is_input:
+                return CmdOutputObservation(
+                    content="ERROR: No previous running command to retrieve logs from.",
+                    command="",
+                    metadata=CmdOutputMetadata(),
+                )
+
+            # For interactive input, treat an empty command as a request to poll
+            # the currently running process for more output.
+            if self.state.state in (
+                RunState.RUNNING,
+                RunState.NO_OUTPUT_TIMEOUT,
+                RunState.HARD_TIMEOUT,
+            ):
+                return self._poll_running_command_output()
+
             return CmdOutputObservation(
-                content="ERROR: No previous running command.",
+                content="ERROR: No previous running command to interact with.",
                 command="",
                 metadata=CmdOutputMetadata(),
             )

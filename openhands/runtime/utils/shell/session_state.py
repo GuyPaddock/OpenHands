@@ -29,3 +29,7 @@ class SessionState:
 
     #: Last working directory reported by the prompt metadata.
     cwd: Optional[str] = None
+
+    #: Last non-input command executed. Used to cleanly stitch outputs when
+    #: polling a running process (e.g., empty interactive inputs).
+    last_command: str = ""
