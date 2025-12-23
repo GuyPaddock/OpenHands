@@ -5,22 +5,54 @@ from openhands.agenthub.codeact_agent.tools.security_utils import (
     SECURITY_RISK_DESC,
 )
 
-_FILE_EDIT_DESCRIPTION = """Edit a file in plain-text format.
-* The assistant can edit files by specifying the file path and providing a draft of the new file content.
-* The draft content doesn't need to be exactly the same as the existing file; the assistant may skip unchanged lines using comments like `# ... existing code ...` to indicate unchanged sections.
-* IMPORTANT: For large files (e.g., > 300 lines), specify the range of lines to edit using `start` and `end` (1-indexed, inclusive). The range should be smaller than 300 lines.
-* -1 indicates the last line of the file when used as the `start` or `end` value.
-* Keep at least one unchanged line before the changed section and after the changed section wherever possible.
-* Make sure to set the `start` and `end` to include all the lines in the original file referred to in the draft of the new file content. Failure to do so will result in bad edits.
-* To append to a file, set both `start` and `end` to `-1`.
-* If the file doesn't exist, a new file will be created with the provided content.
-* IMPORTANT: Make sure you include all the required indentations for each line of code in the draft, otherwise the edited code will be incorrectly indented.
-* IMPORTANT: Make sure that the first line of the draft is also properly indented and has the required whitespaces.
-* IMPORTANT: NEVER include or make references to lines from outside the `start` and `end` range in the draft.
-* IMPORTANT: Start the content with a comment in the format: #EDIT: Reason for edit
-* IMPORTANT: If you are not appending to the file, avoid setting `start` and `end` to the same value.
+_FILE_EDIT_DESCRIPTION = """Edit files in plain-text format by replacing, modifying, or appending content in
+a controlled and predictable way.
 
-**Example 1: general edit for short files**
+This operates under OpenHands workspace safety and integrity rules. Use this tool to apply targeted edits while
+minimizing unintended file corruption.
+
+The following sections DEFINE REQUIRED BEHAVIOR when using this tool. They ARE NOT optional.
+
+<TOOL_USAGE_OVERVIEW>
+- Provide the file path to edit
+- Provide draft replacement content
+- Specify the range of lines to edit using start and end (1-indexed, inclusive)
+- Use -1 for start or end to refer to the last line of the file
+- If the file does not exist, it will be created with the provided content
+</TOOL_USAGE_OVERVIEW>
+
+<TOOL_RULES>
+- Always include a reason comment at the top of the draft in the format:
+  #EDIT: <reason for edit>
+- Do not reference or include content outside the specified start/end range
+- Keep indentation exact; incorrect whitespace will corrupt code
+- The first line of the draft must also be correctly indented
+- Keep at least one unchanged line before and after edited content whenever possible
+</TOOL_RULES>
+
+<TOOL_RANGE_RULES>
+- For large files (approximately > 300 lines), you MUST limit edits to a range smaller than 300 lines
+- Always ensure start and end fully cover all original lines referenced in the draft
+- Avoid setting start and end to the same value unless appending
+- To append, set both start and end to -1
+</TOOL_RANGE_RULES>
+
+<TOOL_FORMAT_RULES>
+- Draft content does NOT need to include the whole original file
+- You may omit unchanged regions using comments such as:
+  # ... existing code ...
+- However, only use such comments to indicate unchanged sections; do not use them to reference code outside the edit range
+</TOOL_FORMAT_RULES>
+
+<TOOL_FAILURE_PREVENTION>
+- Incorrect ranges cause corrupted edits; double-check them
+- Ensure indentation is correct on every edited line
+- Ensure the first draft line is correctly indented
+- NEVER refer to text outside the declared edit range
+</TOOL_FAILURE_PREVENTION>
+
+<TOOL_EXAMPLES>
+<TOOL_EXAMPLE ID="1" DESCRIPTION="General edit for short files">
 For example, given an existing file `/path/to/file.py` that looks like this:
 (this is the beginning of the file)
 1|class MyClass:
@@ -54,8 +86,9 @@ class MyClass:
 
 print(MyClass().y)
 ```
+</TOOL_EXAMPLE>
 
-**Example 2: append to file for short files**
+<TOOL_EXAMPLE ID="2" DESCRIPTION="Append to file for short files">
 For example, given an existing file `/path/to/file.py` that looks like this:
 (this is the beginning of the file)
 1|class MyClass:
@@ -79,9 +112,9 @@ path="/path/to/file.txt" start=-1 end=-1
 content=```
 print(MyClass().y)
 ```
+</TOOL_EXAMPLE>
 
-**Example 3: edit for long files**
-
+<TOOL_EXAMPLE ID="3" DESCRIPTION="Edit for long files">
 Given an existing file `/path/to/file.py` that looks like this:
 (1000 more lines above)
 1001|class MyClass:
@@ -117,6 +150,8 @@ content=```
 # MyClass().z is removed
 print(MyClass().y)
 ```
+</TOOL_EXAMPLE>
+</TOOL_EXAMPLES>
 """
 
 LLMBasedFileEditTool = ChatCompletionToolParam(
