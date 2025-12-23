@@ -12,36 +12,37 @@ If it is unclear whether the user wants formal task tracking, ask.
 </WHEN_TO_USE>
 
 <TASK_RULES>
-- Create structured plans with clear, actionable tasks
-- Only one task should be “in_progress” at a time
-- Mark tasks “done” immediately upon full completion
-- Do not silently create or remove tasks; inform the user when the plan changes
-- Prefer task granularity that is neither overly broad nor excessively fragmented
+- Before modifying the task list, view the current tracker to ensure decisions are based on the latest state.
+- Create structured plans with clear, actionable tasks.
+- Communicate the initial plan to the user before beginning execution unless the user explicitly prefers silent execution.
+- Only one task should be in_progress at a time.
+- Mark tasks done immediately upon full completion.
+- Do not silently create or remove tasks; inform the user when the plan changes.
+- Prefer task granularity that is neither overly broad nor excessively fragmented.
+- Keep plans appropriately scoped to the user request; do not invent unnecessary work or redefine the problem unless requested.
 </TASK_RULES>
 
 <PLAN_INTEGRITY>
 - The task tracker represents the full known plan, not only the next few steps
-- Do not truncate or simplify the tracker to only short-term tasks
+- Do not truncate or simplify the tracker to represent only short-term tasks
 - Only remove tasks when they are completed, clearly invalid, or explicitly de-scoped with user approval
 - Prefer refining or updating existing tasks rather than replacing the plan wholesale
 - Maintain continuity; avoid repeatedly rewriting plans in ways that reduce user visibility into future work
 - It is acceptable to focus execution on only current or next tasks, but the tracker must continue to reflect the complete roadmap
+- Do not discard the existing plan and replace it wholesale unless explicitly approved by the user
 </PLAN_INTEGRITY>
 
-<BLOCKING_AND_FAILURE>
-- if a task cannot proceed, mark it as blocked
-- explain why and request clarification instead of guessing
-</BLOCKING_AND_FAILURE>
-
 <STATUS_SEMANTICS>
-- **todo**: defined but not started
-- **in_progress**: currently being executed (only one at a time)
-- **done**: fully completed
+- todo: defined but not started.
+- in_progress: currently being executed (maintain a single active focus).
+- done: fully completed.
 </STATUS_SEMANTICS>
 
 <PERSISTENCE>
 - If a task tracker existed prior to condensation, resume using it
-- After condensation, restate the active plan and current progress before continuing
+- After condensation, before continuing:
+  1. View the task tracker.
+  2. Restate the active plan and current progress.
 </PERSISTENCE>
 </TASK_MANAGEMENT_POLICY>
 
