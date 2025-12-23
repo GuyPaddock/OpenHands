@@ -1409,6 +1409,37 @@ def test_python_interactive_input(temp_dir, runtime_cls, run_as_openhands):
     os.getenv('TEST_RUNTIME') == 'cli',
     reason='CLIRuntime does not support interactive commands from the agent.',
 )
+def test_empty_input_polls_running_process(temp_dir, runtime_cls, run_as_openhands):
+    runtime, config = _load_runtime(temp_dir, runtime_cls, run_as_openhands)
+    try:
+        python_script = "print(input('Enter your name: '))"
+
+        obs = runtime.run_action(CmdRunAction(f'python -c "{python_script}"'))
+        assert 'Enter your name:' in obs.content
+        assert obs.metadata.exit_code == -1
+
+        # Poll for more output without sending new input.
+        obs = runtime.run_action(CmdRunAction('', is_input=True))
+        assert 'ERROR: No previous running command' not in obs.content
+        assert 'Enter your name:' in obs.content
+        assert obs.metadata.exit_code == -1
+
+        # Now send the actual input and ensure the program completes.
+        obs = runtime.run_action(CmdRunAction('Alice', is_input=True))
+        assert 'Alice' in obs.content
+        assert obs.metadata.exit_code == 0
+        assert '[The command completed with exit code 0.]' in obs.metadata.suffix
+    finally:
+        _close_test_runtime(runtime)
+
+
+@pytest.mark.skipif(
+    is_windows(), reason='Powershell does not support interactive commands'
+)
+@pytest.mark.skipif(
+    os.getenv('TEST_RUNTIME') == 'cli',
+    reason='CLIRuntime does not support interactive commands from the agent.',
+)
 def test_python_interactive_input_without_set_input(
     temp_dir, runtime_cls, run_as_openhands
 ):
