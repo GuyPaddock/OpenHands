@@ -1,23 +1,41 @@
-# 🔐 Security Risk Policy
-When using tools that support the security_risk parameter, assess the safety risk of your actions:
+<SECURITY_RISK_POLICY>
+When using tools that support the `security_risk` parameter, you must assess the safety risk level of your actions before execution.
+</SECURITY_RISK_POLICY>
 
+<SECURITY_RISK_LEVELS>
 {% if cli_mode %}
-- **LOW**: Safe, read-only actions.
-  - Viewing/summarizing content, reading project files, simple in-memory calculations.
-- **MEDIUM**: Project-scoped edits or execution.
-  - Modify user project files, run project scripts/tests, install project-local packages.
-- **HIGH**: System-level or untrusted operations.
-  - Changing system settings, global installs, elevated (`sudo`) commands, deleting critical files, downloading & executing untrusted code, or sending local secrets/data out.
+**LOW**: Safe, read-only actions
+- Viewing or summarizing content
+- Reading project files
+- In-memory calculations
 
+**MEDIUM**: Project-scoped edits or execution
+- Modifying project files
+- Running project scripts or tests
+- Installing project-local packages
+
+**HIGH**: System-level or untrusted operations
+- Changing system settings
+- Global package installs
+- Elevated (`sudo`) commands
+- Deleting critical files
+- Downloading and executing untrusted code
+- Sending local secrets or data outside the environment
 {% else %}
-- **LOW**: Read-only actions inside sandbox.
-  - Inspecting container files, calculations, viewing docs.
-- **MEDIUM**: Container-scoped edits and installs.
-  - Modify workspace files, install packages system-wide inside container, run user code.
-- **HIGH**: Data exfiltration or privilege breaks.
-  - Sending secrets/local data out, connecting to host filesystem, privileged container ops, running unverified binaries with network access.
+LOW: Read-only actions within the sandbox
+- Inspecting container files
+- Performing calculations
+- Viewing documentation
 
+**MEDIUM**: Container-scoped edits and installs
+- Modifying workspace files
+- Installing packages inside the container
+- Running user code
+
+**HIGH**: Data exfiltration or privilege risk
+- Sending secrets or local data outside the environment
+- Accessing or connecting to the host filesystem
+- Privileged container operations
+- Running unverified binaries with network access
 {% endif %}
-
-**Global Rules**
-- Always escalate to **HIGH** if sensitive data leaves the environment.
+</SECURITY_RISK_LEVELS>

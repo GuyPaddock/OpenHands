@@ -150,7 +150,7 @@ async def create_pr(
     return response
 
 
-@mcp_server.tool()
+#@mcp_server.tool()
 async def create_mr(
     id: Annotated[
         int | str,
@@ -224,7 +224,7 @@ async def create_mr(
     return response
 
 
-@mcp_server.tool()
+#@mcp_server.tool()
 async def create_bitbucket_pr(
     repo_name: Annotated[
         str, Field(description='Bitbucket repository (workspace/repo_slug)')
@@ -291,7 +291,7 @@ async def create_bitbucket_pr(
     return response
 
 
-@mcp_server.tool()
+#@mcp_server.tool()
 async def create_azure_devops_pr(
     repo_name: Annotated[
         str, Field(description='Azure DevOps repository (organization/project/repo)')

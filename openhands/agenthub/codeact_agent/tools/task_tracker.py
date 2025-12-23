@@ -2,163 +2,62 @@ from litellm import ChatCompletionToolParam, ChatCompletionToolParamFunctionChun
 
 from openhands.llm.tool_names import TASK_TRACKER_TOOL_NAME
 
-_DETAILED_TASK_TRACKER_DESCRIPTION = """This tool provides structured task management capabilities for development workflows.
-It enables systematic tracking of work items, progress monitoring, and efficient
-organization of complex development activities.
+_DETAILED_TASK_TRACKER_DESCRIPTION = """
+This tool provides structured task management capabilities for development workflows.
 
-The tool maintains visibility into project status and helps communicate
-progress effectively to users.
+Use this tool to maintain the task plan in accordance with TASK_MANAGEMENT_POLICY in the system prompt.
+Use it to keep tasks, statuses, and progress in sync with the plan you have communicated to the user.
 
-## Application Guidelines
+The following sections DEFINE REQUIRED BEHAVIOR when using this tool. They ARE NOT optional.
 
-Utilize this tool in the following situations:
+<TOOL_USAGE_OVERVIEW>
+- Use task_tracker for multi-step or multi-phase work, or when the user requests structured planning.
+- Do not use task_tracker for trivial or single-step tasks where tracking adds no value.
+- If unsure whether the user wants formal task tracking for a small task, ask first.
+</TOOL_USAGE_OVERVIEW>
 
-1. Multi-phase development work - When projects involve multiple sequential or
-   parallel activities
-2. Complex implementation tasks - Work requiring systematic planning and
-   coordination across multiple components
-3. Explicit user request for task organization - When users specifically ask
-   for structured task management
-4. Multiple concurrent requirements - When users present several work items
-   that need coordination
-5. Project initiation - Capture and organize user requirements at project start
-6. Work commencement - Update task status to in_progress before beginning
-   implementation. Maintain focus by limiting active work to one task
-7. Task completion - Update status to done and identify any additional work
-   that emerged during implementation
+<TOOL_CORE_BEHAVIORS>
+Adhere to TASK_MANAGEMENT_POLICY:
+- Maintain a structured plan with clear, actionable tasks.
+- Only one task should be in_progress at a time.
+- Mark tasks done immediately upon full completion.
+- Do not silently add or remove tasks; inform the user when the plan changes.
+- Preserve plan integrity:
+  - The tracker represents the full known plan, not only the next few steps.
+  - Do not truncate the list to just short-term actions.
+  - Only remove tasks when they are completed, clearly invalid, or explicitly de-scoped with user approval.
+  - Prefer refining/updating tasks over replacing the plan wholesale.
+- If a task cannot proceed, mark it as blocked, explain why, and ask for clarification.
+</TOOL_CORE_BEHAVIORS>
 
-## Situations Where Tool Usage Is Unnecessary
+<TOOL_STATUS_SEMANTICS>
+- todo: defined but not started.
+- in_progress: currently being executed (maintain a single active focus).
+- done: fully completed.
+- blocked: cannot proceed without input, resources, or resolution
+</TOOL_STATUS_SEMANTICS>
 
-Avoid using this tool when:
+<TOOL_RECOMMENDED_WORKFLOW>
+1. Before changing the plan, call task_tracker with `command="view"` to see the current tasks and statuses.
+2. When planning or updating, use `command="plan"` with a complete task_list that reflects the full known plan.
+3. Update task statuses as work progresses (todo → in_progress → done or blocked).
+4. After any substantial change to the plan, summarize the updated tasks and statuses to the user.
+</TOOL_RECOMMENDED_WORKFLOW>
 
-1. Single atomic tasks that require no decomposition
-2. Trivial operations where tracking adds no organizational value
-3. Simple activities completable in minimal steps
-4. Pure information exchange or discussion
-
-Note: For single straightforward tasks, proceed with direct implementation
-rather than creating tracking overhead.
-
-## Usage Scenarios
-
-**Scenario A: Feature Development with Validation**
-User request: "Build a user authentication system with login/logout functionality.
-Don't forget to include input validation and error handling!"
-
-Response approach: I'll implement a user authentication system with comprehensive
-validation. Let me organize this work systematically.
-
-*Task breakdown includes:*
-1. Design authentication API endpoints and data models
-2. Implement user login/logout controllers with session management
-3. Add client-side form validation and error display
-4. Create backend input sanitization and security checks
-5. Implement comprehensive error handling for edge cases
-6. Perform integration testing and fix any issues
-
-**Scenario B: Codebase Refactoring**
-User request: "I need to update all instances of the method 'fetchData' to
-'retrieveInformation' throughout the entire project"
-
-Response approach: Let me first analyze your codebase to identify all locations
-where 'fetchData' appears.
-
-*After code analysis*
-
-I've located 12 occurrences of 'fetchData' across 6 files in your project.
-I'll create a systematic plan to update these references.
-
-*Organized task list includes specific file-by-file updates*
-
-**Scenario C: Multi-feature Development**
-User request: "Set up a blog platform with these components: admin dashboard,
-article management, comment system, and user profiles."
-
-Response approach: I'll help build your blog platform. Let me break down these
-components into manageable implementation phases.
-
-*Creates structured plan with each feature decomposed into specific development tasks*
-
-## Counter-examples - Direct Implementation Preferred
-
-**Counter-example A: Simple inquiry**
-User request: "What's the syntax for a for loop in JavaScript?"
-
-Response approach: Here's how to write a for loop in JavaScript:
-
-```javascript
-for (let i = 0; i < array.length; i++) {
-    console.log(array[i]);
-}
-```
-
-*No task tracking needed - single informational response*
-
-**Counter-example B: Minor modification**
-User request: "Please add a docstring to the processPayment function explaining
-its parameters."
-
-Response approach: I'll add a docstring to explain the processPayment function.
-
-*Direct edit without task tracking for simple modification*
-
-## Status Management and Workflow
-
-1. **Status Values**: Track work using these states:
-   - todo: Not yet initiated
-   - in_progress: Currently active (maintain single focus)
-   - done: Successfully completed
-
-2. **Workflow Practices**:
-   - Update status dynamically as work progresses
-   - Mark completion immediately upon task finish
-   - Limit active work to ONE task at any given time
-   - Complete current activities before initiating new ones
-   - Remove obsolete tasks from tracking entirely
-
-3. **Completion Criteria**:
-   - Mark tasks as done only when fully achieved
-   - Keep status as in_progress if errors, blocks, or partial completion exist
-   - Create new tasks for discovered issues or dependencies
-   - Never mark done when:
-       - Test suites are failing
-       - Implementation remains incomplete
-       - Unresolved errors persist
-       - Required resources are unavailable
-
-4. **Task Organization**:
-   - Write precise, actionable descriptions
-   - Decompose complex work into manageable units
-   - Use descriptive, clear naming conventions
-
-When uncertain, favor using this tool. Proactive task management demonstrates
-systematic approach and ensures comprehensive requirement fulfillment.
-"""
-
-_SHORT_TASK_TRACKER_DESCRIPTION = """Provides structured task management for development workflows, enabling progress
-tracking and systematic organization of complex coding activities.
-
-* Apply to multi-phase projects (3+ distinct steps) or when managing multiple user requirements
-* Update status (todo/in_progress/done) dynamically throughout work
-* Maintain single active task focus at any time
-* Mark completion immediately upon task finish
-* Decompose complex work into manageable, actionable units
+<TOOL_COUNTER_EXAMPLES>
+When NOT to use this tool:
+- Single, simple information requests (e.g., "What is the syntax for a for loop in JavaScript?")
+- Very small, atomic edits (e.g., "Add a docstring to this one function") where a plan would add overhead.
+</TOOL_COUNTER_EXAMPLES>
 """
 
 
-def create_task_tracker_tool(
-    use_short_description: bool = False,
-) -> ChatCompletionToolParam:
-    description = (
-        _SHORT_TASK_TRACKER_DESCRIPTION
-        if use_short_description
-        else _DETAILED_TASK_TRACKER_DESCRIPTION
-    )
+def create_task_tracker_tool() -> ChatCompletionToolParam:
     return ChatCompletionToolParam(
         type='function',
         function=ChatCompletionToolParamFunctionChunk(
             name=TASK_TRACKER_TOOL_NAME,
-            description=description,
+            description=_DETAILED_TASK_TRACKER_DESCRIPTION,
             parameters={
                 'type': 'object',
                 'properties': {
