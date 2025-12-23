@@ -8079,6 +8079,22 @@
     "tr": "<path>{{path}}</path> dosyasına yazılıyor",
     "uk": "Записую в <path>{{path}}</path>"
   },
+  "ACTION_MESSAGE$APPLY_PATCH": {
+    "en": "Applying patch",
+    "ja": "パッチを適用中",
+    "zh-CN": "正在应用补丁",
+    "zh-TW": "正在套用修補程式",
+    "ko-KR": "패치를 적용 중입니다",
+    "no": "Patch brukes",
+    "ar": "جارٍ تطبيق التصحيح",
+    "de": "Patch wird angewendet",
+    "fr": "Application du correctif",
+    "it": "Applicazione della patch",
+    "pt": "Aplicando correção",
+    "es": "Aplicando parche",
+    "tr": "Yama uygulanıyor",
+    "uk": "Застосовується патч"
+  },
   "ACTION_MESSAGE$BROWSE": {
     "en": "Browsing the web",
     "zh-CN": "浏览",
@@ -8254,6 +8270,22 @@
     "es": "Escribió en <path>{{path}}</path>",
     "tr": "<path>{{path}}</path> dosyasına yazıldı",
     "uk": "Записав на <path>{{path}}</path>"
+  },
+  "OBSERVATION_MESSAGE$APPLY_PATCH": {
+    "en": "Applied patch",
+    "ja": "パッチを適用しました",
+    "zh-CN": "已应用补丁",
+    "zh-TW": "已套用修補程式",
+    "ko-KR": "패치를 적용했습니다",
+    "no": "Patch ble brukt",
+    "ar": "تم تطبيق التصحيح",
+    "de": "Patch angewendet",
+    "fr": "Correctif appliqué",
+    "it": "Patch applicata",
+    "pt": "Correção aplicada",
+    "es": "Parche aplicado",
+    "tr": "Yama uygulandı",
+    "uk": "Патч застосовано"
   },
   "OBSERVATION_MESSAGE$BROWSE": {
     "en": "Browsing completed",

@@ -30,6 +30,7 @@ from openhands.events.action import (
     BrowseInteractiveAction,
     BrowseURLAction,
     CmdRunAction,
+    ApplyPatchAction,
     FileEditAction,
     FileReadAction,
     FileWriteAction,
@@ -1129,6 +1130,10 @@ fi
 
     @abstractmethod
     def edit(self, action: FileEditAction) -> Observation:
+        pass
+
+    @abstractmethod
+    def apply_patch(self, action: ApplyPatchAction) -> Observation:
         pass
 
     @abstractmethod

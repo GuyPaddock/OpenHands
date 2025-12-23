@@ -26,6 +26,10 @@ class ActionType(str, Enum):
     """Edits a file by providing a draft.
     """
 
+    APPLY_PATCH = 'apply_patch'
+    """Applies a codex-style patch across one or more files.
+    """
+
     RUN = 'run'
     """Runs a command.
     """

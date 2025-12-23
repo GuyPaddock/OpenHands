@@ -19,11 +19,12 @@ from openhands.core.exceptions import (
     FunctionCallValidationError,
 )
 from openhands.llm.tool_names import (
+    APPLY_PATCH_TOOL_NAME,
     BROWSER_TOOL_NAME,
     EXECUTE_BASH_TOOL_NAME,
     FINISH_TOOL_NAME,
     LLM_BASED_EDIT_TOOL_NAME,
-    STR_REPLACE_EDITOR_TOOL_NAME,
+    VIEW_FILE_TOOL_NAME,
 )
 
 # Inspired by: https://docs.together.ai/docs/llama-3-function-calling#function-calling-w-llama-31-70b
@@ -190,54 +191,6 @@ ASSISTANT:
 The server is running on port 5000 with PID 126. You can access the list of numbers in a table format by visiting http://127.0.0.1:5000.
 """,
     },
-    'str_replace_editor': {
-        'create_file': """
-ASSISTANT:
-There is no `app.py` file in the current directory. Let me create a Python file `app.py`:
-<function=str_replace_editor>
-<parameter=command>create</parameter>
-<parameter=path>/workspace/app.py</parameter>
-<parameter=file_text>
-from flask import Flask
-app = Flask(__name__)
-
-@app.route('/')
-def index():
-    numbers = list(range(1, 11))
-    return str(numbers)
-
-if __name__ == '__main__':
-    app.run(port=5000)
-</parameter>
-</function>
-
-USER: EXECUTION RESULT of [str_replace_editor]:
-File created successfully at: /workspace/app.py
-""",
-        'edit_file': """
-ASSISTANT:
-Now let me display the numbers in a table format:
-<function=str_replace_editor>
-<parameter=command>str_replace</parameter>
-<parameter=path>/workspace/app.py</parameter>
-<parameter=old_str>return str(numbers)</parameter>
-<parameter=new_str>return '<table>' + ''.join([f'<tr><td>{i}</td></tr>' for i in numbers]) + '</table>'</parameter>
-</function>
-
-USER: EXECUTION RESULT of [str_replace_editor]:
-The file /workspace/app.py has been edited. Here's the result of running `cat -n` on a snippet of /workspace/app.py:
-     3
-     4  @app.route('/')
-     5  def index():
-     6      numbers = list(range(1, 11))
-     7      return '<table>' + ''.join([f'<tr><td>{i}</td></tr>' for i in numbers]) + '</table>'
-     8
-     9  if __name__ == '__main__':
-    10      app.run(port=5000)
-Review the changes and make sure they are as expected. Edit the file again if necessary.
-
-""",
-    },
     'browser': {
         'view_page': """
 ASSISTANT:
@@ -314,6 +267,70 @@ The server is running on port 5000 with PID 126. You can access the list of numb
 </function>
 """
     },
+    'apply_patch': {
+        'create_file': """
+ASSISTANT:
+There is no `app.py` file in the current directory. Let me create it with apply_patch:
+<function=apply_patch>
+<parameter=patch>*** Begin Patch
+*** Add File: /workspace/app.py
+print('hello world')
+*** End Patch</parameter>
+<parameter=security_risk>LOW</parameter>
+</function>
+
+USER: EXECUTION RESULT of [apply_patch]:
+ADD /workspace/app.py
+""",
+        'edit_file': """
+ASSISTANT:
+I'll update `app.py` to run a small server:
+<function=apply_patch>
+<parameter=patch>*** Begin Patch
+*** Update File: /workspace/app.py
+@@
+-print('hello world')
++from flask import Flask
++
++app = Flask(__name__)
++
++@app.route('/')
++def index():
++    return 'hello world'
++
++if __name__ == '__main__':
++    app.run(port=5000)
+*** End Patch</parameter>
+<parameter=security_risk>LOW</parameter>
+</function>
+
+USER: EXECUTION RESULT of [apply_patch]:
+UPDATE /workspace/app.py
+"""
+    },
+    'view_file': {
+        'inspect_file': """
+ASSISTANT:
+Let me review the updated file to confirm the changes:
+<function=view_file>
+<parameter=path>/workspace/app.py</parameter>
+<parameter=view_range>[1, 20]</parameter>
+<parameter=security_risk>LOW</parameter>
+</function>
+
+USER: EXECUTION RESULT of [view_file]:
+     1  from flask import Flask
+     2
+     3  app = Flask(__name__)
+     4
+     5  @app.route('/')
+     6  def index():
+     7      return 'hello world'
+     8
+     9  if __name__ == '__main__':
+    10      app.run(port=5000)
+"""
+    },
 }
 
 
@@ -325,14 +342,16 @@ def get_example_for_tools(tools: list[dict]) -> str:
             name = tool['function']['name']
             if name == EXECUTE_BASH_TOOL_NAME:
                 available_tools.add('execute_bash')
-            elif name == STR_REPLACE_EDITOR_TOOL_NAME:
-                available_tools.add('str_replace_editor')
+            elif name == APPLY_PATCH_TOOL_NAME:
+                available_tools.add('apply_patch')
             elif name == BROWSER_TOOL_NAME:
                 available_tools.add('browser')
             elif name == FINISH_TOOL_NAME:
                 available_tools.add('finish')
             elif name == LLM_BASED_EDIT_TOOL_NAME:
                 available_tools.add('edit_file')
+            elif name == VIEW_FILE_TOOL_NAME:
+                available_tools.add('view_file')
 
     if not available_tools:
         return ''
@@ -349,10 +368,13 @@ USER: Create a list of numbers from 1 to 10, and display them in a web page at p
     if 'execute_bash' in available_tools:
         example += TOOL_EXAMPLES['execute_bash']['check_dir']
 
-    if 'str_replace_editor' in available_tools:
-        example += TOOL_EXAMPLES['str_replace_editor']['create_file']
+    if 'apply_patch' in available_tools:
+        example += TOOL_EXAMPLES['apply_patch']['create_file']
     elif 'edit_file' in available_tools:
         example += TOOL_EXAMPLES['edit_file']['create_file']
+
+    if 'view_file' in available_tools:
+        example += TOOL_EXAMPLES['view_file']['inspect_file']
 
     if 'execute_bash' in available_tools:
         example += TOOL_EXAMPLES['execute_bash']['run_server']
@@ -363,8 +385,8 @@ USER: Create a list of numbers from 1 to 10, and display them in a web page at p
     if 'execute_bash' in available_tools:
         example += TOOL_EXAMPLES['execute_bash']['kill_server']
 
-    if 'str_replace_editor' in available_tools:
-        example += TOOL_EXAMPLES['str_replace_editor']['edit_file']
+    if 'apply_patch' in available_tools:
+        example += TOOL_EXAMPLES['apply_patch']['edit_file']
     elif 'edit_file' in available_tools:
         example += TOOL_EXAMPLES['edit_file']['edit_file']
 

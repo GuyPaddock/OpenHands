@@ -9,6 +9,7 @@ from openhands.controller.state.state import State
 from openhands.core.config.agent_config import AgentConfig
 from openhands.core.message import ImageContent, Message, TextContent
 from openhands.events.action import (
+    ApplyPatchAction,
     AgentFinishAction,
     CmdRunAction,
     MessageAction,
@@ -21,7 +22,10 @@ from openhands.events.event import (
     FileReadSource,
     RecallType,
 )
-from openhands.events.observation import CmdOutputObservation
+from openhands.events.observation import (
+    CmdOutputObservation,
+    ApplyPatchObservation,
+)
 from openhands.events.observation.agent import (
     MicroagentKnowledge,
     RecallObservation,
@@ -37,6 +41,7 @@ from openhands.events.observation.files import FileEditObservation, FileReadObse
 from openhands.events.observation.reject import UserRejectObservation
 from openhands.events.tool import ToolCallMetadata
 from openhands.memory.conversation_memory import ConversationMemory
+from openhands.utils.apply_patch import format_apply_patch_observation
 from openhands.utils.prompt import PromptManager, RepositoryInfo, RuntimeInfo
 
 
@@ -567,6 +572,66 @@ def test_process_events_with_function_calling_observation(conversation_memory):
     assert (
         len(messages) == 2
     )  # should be no messages except system message and initial user message
+
+
+def test_process_events_with_success_observation(conversation_memory):
+    patch_text = "*** Begin Patch\n*** End Patch"
+    success_content = format_apply_patch_observation(
+        patch_text, {"status": "success"}
+    )
+    success_obs = ApplyPatchObservation(content=success_content)
+
+    initial_user_action = MessageAction(content='Initial user message')
+    initial_user_action._source = EventSource.USER
+
+    messages = conversation_memory.process_events(
+        condensed_history=[success_obs],
+        initial_user_action=initial_user_action,
+        max_message_chars=None,
+        vision_is_active=False,
+    )
+
+    assert len(messages) == 3
+    assert messages[-1].role == 'user'
+    assert messages[-1].content[0].text == success_content
+
+
+def test_process_events_apply_patch_tool_call(conversation_memory):
+    action = ApplyPatchAction(
+        patch='*** Begin Patch\n*** End Patch',
+        thought='create file',
+    )
+    action._source = EventSource.AGENT
+    action.tool_call_metadata = _create_mock_tool_call_metadata(
+        tool_call_id='patch_call_1', function_name='apply_patch'
+    )
+
+    success_content = format_apply_patch_observation(
+        action.patch, {"status": "success", "applied": []}
+    )
+    success_obs = ApplyPatchObservation(content=success_content)
+    success_obs._source = EventSource.AGENT
+    success_obs.tool_call_metadata = _create_mock_tool_call_metadata(
+        tool_call_id='patch_call_1', function_name='apply_patch'
+    )
+
+    initial_user_action = MessageAction(content='Initial user message')
+    initial_user_action._source = EventSource.USER
+
+    messages = conversation_memory.process_events(
+        condensed_history=[action, success_obs],
+        initial_user_action=initial_user_action,
+        max_message_chars=None,
+        vision_is_active=False,
+    )
+
+    assert len(messages) == 4
+    assert messages[2].role == 'assistant'
+    assert messages[2].tool_calls is not None
+    assert messages[2].tool_calls[0].function.name == 'apply_patch'
+    assert messages[3].role == 'tool'
+    assert messages[3].tool_call_id == 'patch_call_1'
+    assert messages[3].content[0].text == success_content
 
 
 def test_process_events_with_message_action_with_image(conversation_memory):
