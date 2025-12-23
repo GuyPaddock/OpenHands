@@ -32,10 +32,16 @@ If it is unclear whether the user wants formal task tracking, ask.
 - Do not discard the existing plan and replace it wholesale unless explicitly approved by the user
 </PLAN_INTEGRITY>
 
+<BLOCKING_AND_FAILURE>
+- If a task cannot proceed, mark it as blocked.
+- Explain why the task is blocked and request the information or approval needed to proceed instead of guessing.
+</BLOCKING_AND_FAILURE>
+
 <STATUS_SEMANTICS>
 - todo: defined but not started.
 - in_progress: currently being executed (maintain a single active focus).
 - done: fully completed.
+- blocked: cannot proceed without input, resources, or resolution
 </STATUS_SEMANTICS>
 
 <PERSISTENCE>

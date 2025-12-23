@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { TaskItem as TaskItemType } from "#/types/v1/core/base/common";
 import CircleIcon from "#/icons/u-circle.svg?react";
 import CheckCircleIcon from "#/icons/u-check-circle.svg?react";
+import ErrorIcon from "#/icons/circle-error.svg?react";
 import LoadingIcon from "#/icons/loading.svg?react";
 import { cn } from "#/utils/utils";
 import { Typography } from "#/ui/typography";
@@ -23,6 +24,8 @@ export function TaskItem({ task }: TaskItemProps) {
         return <LoadingIcon className="w-4 h-4 text-[#ffffff] animate-spin" />;
       case "done":
         return <CheckCircleIcon className="w-4 h-4 text-[#A3A3A3]" />;
+      case "blocked":
+        return <ErrorIcon className="w-4 h-4 text-[#A3A3A3]" />;
       default:
         return <CircleIcon className="w-4 h-4 text-[#ffffff]" />;
     }

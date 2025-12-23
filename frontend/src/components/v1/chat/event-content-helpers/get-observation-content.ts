@@ -160,6 +160,7 @@ const getTaskTrackerObservationContent = (
         todo: "⏳",
         in_progress: "🔄",
         done: "✅",
+        blocked: "🧱",
       };
       const statusIcon =
         statusMap[task.status as keyof typeof statusMap] || "❓";

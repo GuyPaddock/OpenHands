@@ -101,6 +101,7 @@ const getTaskTrackerActionContent = (action: TaskTrackerAction): string => {
           todo: "⏳",
           in_progress: "🔄",
           done: "✅",
+          blocked: "🧱",
         };
         const statusIcon =
           statusMap[task.status as keyof typeof statusMap] || "❓";

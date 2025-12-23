@@ -989,6 +989,7 @@ fi
                             'todo': '⏳',
                             'in_progress': '🔄',
                             'done': '✅',
+                            'blocked': '🧱',
                         }.get(task.get('status', 'todo'), '⏳')
                         content += f'{i}. {status_icon} {task.get("title", "")}\n{task.get("notes", "")}\n'
 

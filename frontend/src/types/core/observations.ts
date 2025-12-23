@@ -148,7 +148,7 @@ export interface TaskTrackingObservation extends OpenHandsObservationEvent<"task
     task_list: Array<{
       id: string;
       title: string;
-      status: "todo" | "in_progress" | "done";
+      status: "todo" | "in_progress" | "done" | "blocked";
       notes?: string;
     }>;
   };
