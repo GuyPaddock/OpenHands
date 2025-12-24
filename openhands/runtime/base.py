@@ -983,7 +983,9 @@ fi
 
                 if action.command == 'plan':
                     # Validate that the task list is correctly populated.
-                    self._validate_task_list(action.task_list)
+                    validation_error = self._validate_task_list(action.task_list)
+                    if validation_error:
+                        return validation_error
 
                     # Write the serialized task list to the session directory
                     content = '# Task List\n\n'
@@ -1263,37 +1265,63 @@ fi
     # ====================================================================
 
     @classmethod
-    def _validate_task_list(cls, task_list: list[dict[str, str]]) -> None:
-        def render_keys_error(error_prefix: str,
-                              task_identifier: str,
-                              keys: set[str]) -> ErrorObservation:
-            keys_str = ",".join(keys)
+    def _validate_task_list(
+        cls, task_list: list[dict[str, str]]
+    ) -> ErrorObservation | None:
+        def render_keys_error(
+            error_prefix: str, task_identifier: str, keys: set[str]
+        ) -> ErrorObservation:
+            keys_str = ",".join(sorted(keys))
             return ErrorObservation(
                 f"Task list was not updated: {error_prefix} in task {task_identifier}: [{keys_str}]"
             )
 
+        allowed_statuses = {"todo", "in_progress", "done", "blocked"}
+
         for i, task in enumerate(task_list, 1):
-            identifier = f"ID '{task_id}'" if (task_id := task.get("id")) else f"Task #{i}"
+            if not isinstance(task, dict):
+                return ErrorObservation(
+                    f"Task list was not updated: task #{i} must be an object with keys id, title, status, and optional notes."
+                )
+
+            identifier = (
+                f"ID '{task_id}'" if (task_id := task.get("id")) else f"Task #{i}"
+            )
 
             required_keys = {"id", "title", "status"}
             optional_keys = {"notes"}
 
-            task_keys = task.keys()
+            task_keys = set(task.keys())
             unexpected_keys = task_keys - required_keys - optional_keys
-            missing_keys = task_keys - required_keys
+            missing_keys = required_keys - task_keys
             empty_required_keys = {
-                k for k, v in task.items()
-                if k in required_keys and len(v.strip()) == 0
+                k
+                for k in required_keys
+                if not str(task.get(k, "")).strip()
             }
 
             if unexpected_keys:
-                render_keys_error("unexpected keys", identifier, unexpected_keys)
+                return render_keys_error("unexpected keys", identifier, unexpected_keys)
 
             if missing_keys:
-                render_keys_error("required keys are missing", identifier, missing_keys)
+                return render_keys_error(
+                    "required keys are missing", identifier, missing_keys
+                )
 
             if empty_required_keys:
-                render_keys_error("required keys are empty but must not be", identifier, empty_required_keys)
+                return render_keys_error(
+                    "required keys are empty but must not be",
+                    identifier,
+                    empty_required_keys,
+                )
+
+            if task["status"] not in allowed_statuses:
+                return ErrorObservation(
+                    f"Task list was not updated: invalid status in task {identifier}: {task['status']}. "
+                    f"Allowed values: {sorted(allowed_statuses)}"
+                )
+
+        return None
 
     # ====================================================================
     # Lifecycle Events

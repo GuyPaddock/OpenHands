@@ -258,9 +258,18 @@ def response_to_actions(
                     raise FunctionCallValidationError(
                         f'Missing required argument "command" in tool call {tool_call.function.name}'
                     )
-                if arguments['command'] == 'plan' and 'task_list' not in arguments:
+
+                command = arguments['command']
+                if command not in {'view', 'plan'}:
                     raise FunctionCallValidationError(
-                        f'Missing required argument "task_list" for "plan" command in tool call {tool_call.function.name}'
+                        'Invalid "command" value for task_tracker. Allowed values: {"view", "plan"}. '
+                        'Refer to the task_tracker parameters for the expected schema.'
+                    )
+
+                if command == 'plan' and 'task_list' not in arguments:
+                    raise FunctionCallValidationError(
+                        f'Missing required argument "task_list" for "plan" command in tool call {tool_call.function.name}. '
+                        'Expected schema: task_list -> array of {id, title, status, notes}.'
                     )
 
                 raw_task_list = arguments.get('task_list', [])
@@ -269,29 +278,48 @@ def response_to_actions(
                         f'Invalid format for "task_list". Expected a list but got {type(raw_task_list)}.'
                     )
 
-                # Normalize task_list to ensure it's always a list of dictionaries
+                allowed_task_fields = {'id', 'title', 'status', 'notes'}
                 normalized_task_list = []
-                for i, task in enumerate(raw_task_list):
-                    if isinstance(task, dict):
-                        # Task is already in correct format, ensure required fields exist
-                        normalized_task = {
-                            'id': task.get('id', f'task-{i + 1}'),
-                            'title': task.get('title', 'Untitled task'),
-                            'status': task.get('status', 'todo'),
-                            'notes': task.get('notes', ''),
-                        }
-                    else:
-                        # Unexpected format, raise validation error
+                for task in raw_task_list:
+                    if not isinstance(task, dict):
                         logger.warning(
                             f'Unexpected task format in task_list: {type(task)} - {task}'
                         )
                         raise FunctionCallValidationError(
                             f'Unexpected task format in task_list: {type(task)}. Each task should be a dictionary.'
                         )
+
+                    unexpected_keys = set(task.keys()) - allowed_task_fields
+                    if unexpected_keys:
+                        raise FunctionCallValidationError(
+                            'Unexpected keys in task_list entry: '
+                            f"{', '.join(sorted(unexpected_keys))}. Allowed keys: {allowed_task_fields}."
+                        )
+
+                    missing_keys = {'id', 'title', 'status'} - set(task.keys())
+                    if missing_keys:
+                        raise FunctionCallValidationError(
+                            'Missing required fields in task_list entry: '
+                            f"{', '.join(sorted(missing_keys))}. Each task must include id, title, and status."
+                        )
+
+                    status = task['status']
+                    if status not in {'todo', 'in_progress', 'done', 'blocked'}:
+                        raise FunctionCallValidationError(
+                            'Invalid task status in task_list entry. '
+                            'Allowed values: {"todo", "in_progress", "done", "blocked"}.'
+                        )
+
+                    normalized_task = {
+                        'id': task['id'],
+                        'title': task['title'],
+                        'status': status,
+                        'notes': task.get('notes', ''),
+                    }
                     normalized_task_list.append(normalized_task)
 
                 action = TaskTrackingAction(
-                    command=arguments['command'],
+                    command=command,
                     task_list=normalized_task_list,
                 )
 
