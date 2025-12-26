@@ -36,6 +36,7 @@ class CmdOutputMetadata(BaseModel):
     py_interpreter_path: str | None = None
     prefix: str = ''  # Prefix to add to command output
     suffix: str = ''  # Suffix to add to command output
+    awaiting_input: bool = False  # True when the process is still running and waiting for input
 
     @classmethod
     def to_ps1_prompt(cls) -> str:
@@ -179,6 +180,8 @@ class CmdOutputObservation(Observation):
 
     @property
     def error(self) -> bool:
+        if getattr(self.metadata, 'awaiting_input', False):
+            return False
         return self.exit_code != 0
 
     @property

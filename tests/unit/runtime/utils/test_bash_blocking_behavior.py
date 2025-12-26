@@ -12,6 +12,7 @@ def _session_with_mock_tmux(tmp_path):
     session = BashSession(work_dir=str(tmp_path))
     session.tmux = Mock()
     session.tmux.capture.return_value = "pane"
+    session.tmux.clear = Mock()
     return session
 
 
@@ -28,6 +29,29 @@ def test_blocking_after_timeout_states(tmp_path):
         blocked = session._maybe_block_new_command(action, action.command)
         assert blocked is not None
         assert "NOT executed" in blocked.metadata.suffix
+
+
+def test_no_output_flagged_as_awaiting_input(tmp_path):
+    session = _session_with_mock_tmux(tmp_path)
+    session.state.last_command = "git add -p"
+
+    obs = session._finalize_no_output("git add -p", "prompt: ...")
+
+    assert session.state.state == RunState.RUNNING
+    assert obs.metadata.awaiting_input is True
+    assert obs.error is False
+    assert "awaiting input" in obs.metadata.suffix
+
+
+def test_completion_resets_awaiting_input_flag(tmp_path):
+    session = _session_with_mock_tmux(tmp_path)
+
+    meta = CmdOutputMetadata(awaiting_input=True, exit_code=0)
+    obs = session._finalize_successful_completion("echo hi", "output", meta)
+
+    assert session.state.state == RunState.COMPLETED
+    assert obs.metadata.awaiting_input is False
+    assert obs.metadata.exit_code == 0
 
 
 def test_reset_request_resets_session(tmp_path, monkeypatch):
