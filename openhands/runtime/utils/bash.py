@@ -161,7 +161,7 @@ class BashSession:
     def _finalize_no_output(self, command: str, pane: str) -> CmdOutputObservation:
         """Run no-output handler and update state like the original loop."""
         obs = self._handle_no_output(command, pane)
-        self.state.state = RunState.NO_OUTPUT_TIMEOUT
+        self.state.state = RunState.RUNNING
         return obs
 
     def _finalize_hard_timeout(self, command: str, pane: str,
@@ -532,7 +532,13 @@ class BashSession:
         trimmed_content = output_parser.remove_command_prefix(active_pane_content, command)
 
         meta = CmdOutputMetadata()
-        meta.suffix = f"[No output for timeout. {TIMEOUT_MESSAGE_TEMPLATE}]"
+        meta.awaiting_input = True
+        meta.suffix = (
+            "[The process is still running and awaiting input. "
+            "Send follow-up input with `is_input=true` (e.g., responses to prompts or "
+            "`C-c`/`C-d`/`C-z`). If the shell is stuck, run the reset command "
+            f"`{RESET_SESSION_COMMAND}`: {TIMEOUT_MESSAGE_TEMPLATE}]"
+        )
         return CmdOutputObservation(content=trimmed_content, command=command, metadata=meta)
 
     def _handle_hard_timeout(self, command: str, pane: str, timeout: float) -> CmdOutputObservation:
@@ -541,6 +547,7 @@ class BashSession:
         trimmed_content = output_parser.remove_command_prefix(active_pane_content, command)
 
         meta = CmdOutputMetadata()
+        meta.awaiting_input = False
         meta.suffix = f"[Command timed out after {timeout} seconds. {TIMEOUT_MESSAGE_TEMPLATE}]"
         return CmdOutputObservation(content=trimmed_content, command=command, metadata=meta)
 
@@ -567,6 +574,9 @@ class BashSession:
             self.tmux.clear()
 
         self.state.state = RunState.COMPLETED
+
+        # A command that completed should no longer be treated as awaiting input.
+        meta.awaiting_input = False
 
         return CmdOutputObservation(
             content=output.rstrip(),

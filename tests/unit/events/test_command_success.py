@@ -25,6 +25,18 @@ def test_cmd_output_success():
     assert obs.error is True
 
 
+def test_cmd_output_awaiting_input_is_not_error():
+    obs = CmdOutputObservation(
+        command='git add -p',
+        content='',
+        metadata=CmdOutputMetadata(awaiting_input=True),
+    )
+
+    assert obs.error is False
+    assert obs.success is True
+    assert obs.exit_code == -1
+
+
 def test_ipython_cell_success():
     # IPython cells are always successful
     obs = IPythonRunCellObservation(code='print("Hello")', content='Hello')
