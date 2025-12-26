@@ -14,6 +14,7 @@ from openhands.agenthub.codeact_agent.tools import (
     LLMBasedFileEditTool,
     ThinkTool,
     create_apply_patch_tool,
+    create_stage_hunk_tool,
     create_cmd_run_tool,
     create_view_file_tool,
 )
@@ -197,6 +198,20 @@ def test_apply_patch_tool():
     assert apply_patch_tool['function']['parameters']['required'] == [
         'patch',
         'security_risk',
+    ]
+
+
+def test_stage_hunk_tool():
+    stage_hunk_tool = create_stage_hunk_tool()
+    assert stage_hunk_tool['type'] == 'function'
+    assert stage_hunk_tool['function']['name'] == 'stage_hunk'
+
+    properties = stage_hunk_tool['function']['parameters']['properties']
+    assert 'reset_index' in properties
+    assert 'selections' in properties
+    assert 'security_risk' in properties
+    assert stage_hunk_tool['function']['parameters']['required'] == [
+        'security_risk'
     ]
 
 

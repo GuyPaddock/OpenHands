@@ -30,6 +30,10 @@ class ActionType(str, Enum):
     """Applies a codex-style patch across one or more files.
     """
 
+    STAGE_HUNK = 'stage_hunk'
+    """Stages selected hunks or lines into the git index.
+    """
+
     RUN = 'run'
     """Runs a command.
     """

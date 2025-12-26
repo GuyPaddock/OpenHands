@@ -6,6 +6,7 @@ from openhands.events.action import (
     BrowseURLAction,
     CmdRunAction,
     ApplyPatchAction,
+    StageHunkAction,
     FileEditAction,
     FileReadAction,
     FileWriteAction,
@@ -223,6 +224,25 @@ def test_apply_patch_action_serialization_deserialization():
         },
     }
     serialization_deserialization(original_action_dict, ApplyPatchAction)
+
+
+def test_stage_hunk_action_serialization_deserialization():
+    original_action_dict = {
+        'action': 'stage_hunk',
+        'args': {
+            'reset_index': True,
+            'selections': [
+                {
+                    'file': '/workspace/foo.py',
+                    'hunk_id': 'foo.py::hunk-0',
+                    'include_lines': [1, 2],
+                }
+            ],
+            'thought': '',
+            'security_risk': -1,
+        },
+    }
+    serialization_deserialization(original_action_dict, StageHunkAction)
 
 
 def test_file_edit_action_llm_serialization_deserialization():

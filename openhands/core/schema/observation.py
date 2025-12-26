@@ -62,5 +62,8 @@ class ObservationType(str, Enum):
     APPLY_PATCH = 'apply_patch'
     """Result of an apply_patch operation"""
 
+    STAGE_HUNK = 'stage_hunk'
+    """Result of a stage_hunk operation"""
+
     LOOP_DETECTION = 'loop_detection'
     """Results of a dead-loop detection"""

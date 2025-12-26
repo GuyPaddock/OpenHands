@@ -32,6 +32,7 @@ from openhands.events.action import (
     BrowseURLAction,
     CmdRunAction,
     ApplyPatchAction,
+    StageHunkAction,
     FileEditAction,
     FileReadAction,
     FileWriteAction,
@@ -47,6 +48,7 @@ from openhands.events.observation import (
     FileWriteObservation,
     Observation,
     ApplyPatchObservation,
+    StageHunkObservation,
 )
 from openhands.integrations.provider import PROVIDER_TOKEN_TYPE
 from openhands.llm.llm_registry import LLMRegistry
@@ -54,6 +56,12 @@ from openhands.runtime.base import Runtime
 from openhands.runtime.plugins import PluginRequirement
 from openhands.runtime.runtime_status import RuntimeStatus
 from openhands.utils import apply_patch as patch_utils
+from openhands.utils.stage_hunk import (
+    StageHunkError,
+    gather_available_hunks,
+    serialize_available_hunks,
+    stage_selected_hunks,
+)
 
 if TYPE_CHECKING:
     from openhands.runtime.utils.windows_bash import WindowsPowershellSession
@@ -706,6 +714,38 @@ class CLIRuntime(Runtime):
             return ErrorObservation(
                 f'Failed to apply patch ({error.error_type}): {str(error)}'
             )
+
+    def stage_hunk(self, action: StageHunkAction) -> Observation:
+        if not self._runtime_initialized:
+            return ErrorObservation('Runtime not initialized')
+
+        repo_root = Path(self._workspace_path)
+        try:
+            reset_performed = False
+            if action.reset_index:
+                reset_proc = subprocess.run(
+                    ['git', 'reset'],
+                    cwd=repo_root,
+                    text=True,
+                    capture_output=True,
+                )
+                reset_performed = True
+                if reset_proc.returncode != 0:
+                    raise StageHunkError(
+                        reset_proc.stderr.strip() or reset_proc.stdout.strip()
+                    )
+
+            staged, available = stage_selected_hunks(
+                repo_root, action.selections or []
+            )
+            return StageHunkObservation(
+                content='',
+                staged=staged,
+                available_hunks=serialize_available_hunks(available, repo_root),
+                reset_performed=reset_performed,
+            )
+        except StageHunkError as error:
+            return ErrorObservation(f'Failed to stage changes: {error}')
 
     async def call_tool_mcp(self, action: MCPAction) -> Observation:
         """Execute an MCP tool action in CLI runtime.

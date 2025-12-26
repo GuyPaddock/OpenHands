@@ -15,6 +15,7 @@ from openhands.events.action import (
     FileEditAction,
     FileReadAction,
     IPythonRunCellAction,
+    StageHunkAction,
 )
 from openhands.events.event import FileEditSource
 
@@ -167,6 +168,30 @@ def test_apply_patch_missing_required():
     with pytest.raises(FunctionCallValidationError) as exc_info:
         response_to_actions(response)
     assert 'Missing required argument "patch"' in str(exc_info.value)
+
+
+def test_stage_hunk_with_lines():
+    """Test stage_hunk action parsing with line selections and reset flag."""
+    response = create_mock_response(
+        'stage_hunk',
+        {
+            'reset_index': 'true',
+            'selections': [
+                {
+                    'file': '/workspace/foo.py',
+                    'hunk_id': 'foo.py::hunk-0',
+                    'include_lines': [1, 3],
+                }
+            ],
+            'security_risk': 'LOW',
+        },
+    )
+    actions = response_to_actions(response)
+    assert len(actions) == 1
+    assert isinstance(actions[0], StageHunkAction)
+    assert actions[0].reset_index is True
+    assert actions[0].selections is not None
+    assert actions[0].selections[0].include_lines == [1, 3]
 
 
 def test_view_file_valid():
