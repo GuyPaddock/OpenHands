@@ -12,6 +12,7 @@ from openhands.events.action import (
     AgentFinishAction,
     AgentThinkAction,
     ApplyPatchAction,
+    StageHunkAction,
     BrowseInteractiveAction,
     BrowseURLAction,
     CmdRunAction,
@@ -36,6 +37,7 @@ from openhands.events.observation import (
     IPythonRunCellObservation,
     LoopDetectionObservation,
     ApplyPatchObservation,
+    StageHunkObservation,
     TaskTrackingObservation,
     UserRejectObservation,
 )
@@ -229,6 +231,7 @@ class ConversationMemory:
                 AgentDelegateAction,
                 AgentThinkAction,
                 ApplyPatchAction,
+                StageHunkAction,
                 IPythonRunCellAction,
                 FileEditAction,
                 FileReadAction,

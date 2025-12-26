@@ -43,6 +43,7 @@ from openhands.events.action import (
     BrowseURLAction,
     CmdRunAction,
     ApplyPatchAction,
+    StageHunkAction,
     FileEditAction,
     FileReadAction,
     FileWriteAction,
@@ -60,6 +61,13 @@ from openhands.events.observation import (
     IPythonRunCellObservation,
     Observation,
     ApplyPatchObservation,
+    StageHunkObservation,
+)
+from openhands.utils.stage_hunk import (
+    StageHunkError,
+    gather_available_hunks,
+    serialize_available_hunks,
+    stage_selected_hunks,
 )
 from openhands.events.serialization import event_from_dict, event_to_dict
 from openhands.runtime.browser import browse
@@ -611,6 +619,35 @@ class ActionExecutor:
                 error_text += '\nRemember to include a blank space in front of context lines, in place of where +/- would appear on changed lines.'
 
             return ErrorObservation(error_text)
+
+    async def stage_hunk(self, action: StageHunkAction) -> Observation:
+        repo_root = Path(self._initial_cwd)
+        try:
+            reset_performed = False
+            if action.reset_index:
+                reset_proc = subprocess.run(
+                    ['git', 'reset'],
+                    cwd=repo_root,
+                    text=True,
+                    capture_output=True,
+                )
+                reset_performed = True
+                if reset_proc.returncode != 0:
+                    raise StageHunkError(
+                        reset_proc.stderr.strip() or reset_proc.stdout.strip()
+                    )
+
+            staged, available = stage_selected_hunks(
+                repo_root, action.selections or []
+            )
+            return StageHunkObservation(
+                content='',
+                staged=staged,
+                available_hunks=serialize_available_hunks(available, repo_root),
+                reset_performed=reset_performed,
+            )
+        except StageHunkError as error:
+            return ErrorObservation(f'Failed to stage changes: {error}')
 
     async def browse(self, action: BrowseURLAction) -> Observation:
         if self.browser is None:

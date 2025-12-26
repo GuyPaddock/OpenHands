@@ -31,6 +31,7 @@ from openhands.events.action import (
     BrowseURLAction,
     CmdRunAction,
     ApplyPatchAction,
+    StageHunkAction,
     FileEditAction,
     FileReadAction,
     FileWriteAction,
@@ -1134,6 +1135,10 @@ fi
 
     @abstractmethod
     def apply_patch(self, action: ApplyPatchAction) -> Observation:
+        pass
+
+    @abstractmethod
+    def stage_hunk(self, action: StageHunkAction) -> Observation:
         pass
 
     @abstractmethod

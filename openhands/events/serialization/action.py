@@ -26,6 +26,7 @@ from openhands.events.action.files import (
     FileWriteAction,
 )
 from openhands.events.action.apply_patch import ApplyPatchAction
+from openhands.events.action.stage_hunk import StageHunkAction
 from openhands.events.action.mcp import MCPAction
 from openhands.events.action.message import MessageAction, SystemMessageAction
 
@@ -39,6 +40,7 @@ actions = (
     FileWriteAction,
     FileEditAction,
     ApplyPatchAction,
+    StageHunkAction,
     AgentThinkAction,
     AgentFinishAction,
     AgentRejectAction,

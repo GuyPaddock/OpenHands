@@ -1,4 +1,5 @@
 from .apply_patch import create_apply_patch_tool
+from .stage_hunk import create_stage_hunk_tool
 from .bash import create_cmd_run_tool
 from .browser import BrowserTool
 from .condensation_request import CondensationRequestTool
@@ -12,6 +13,7 @@ __all__ = [
     'BrowserTool',
     'CondensationRequestTool',
     'create_apply_patch_tool',
+    'create_stage_hunk_tool',
     'create_cmd_run_tool',
     'FinishTool',
     'IPythonTool',

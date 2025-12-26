@@ -32,6 +32,7 @@ from openhands.events.action import (
     AgentFinishAction,
     AgentThinkAction,
     ApplyPatchAction,
+    StageHunkAction,
     BrowseInteractiveAction,
     CmdRunAction,
     FileEditAction,
@@ -42,9 +43,14 @@ from openhands.events.action import (
 )
 from openhands.events.action.agent import CondensationRequestAction
 from openhands.events.action.mcp import MCPAction
+from openhands.events.action.stage_hunk import StageHunkSelection
 from openhands.events.event import FileEditSource, FileReadSource
 from openhands.events.tool import ToolCallMetadata
-from openhands.llm.tool_names import APPLY_PATCH_TOOL_NAME, TASK_TRACKER_TOOL_NAME
+from openhands.llm.tool_names import (
+    APPLY_PATCH_TOOL_NAME,
+    STAGE_HUNK_TOOL_NAME,
+    TASK_TRACKER_TOOL_NAME,
+)
 
 def combine_thought(action: Action, thought: str) -> Action:
     if not hasattr(action, 'thought'):
@@ -176,6 +182,48 @@ def response_to_actions(
                         f'Missing required argument "patch" in tool call {tool_call.function.name}'
                     )
                 action = ApplyPatchAction(patch=arguments['patch'].rstrip('\n'))
+                set_security_risk(action, arguments)
+            elif tool_call.function.name == STAGE_HUNK_TOOL_NAME:
+                selections = None
+                if 'selections' in arguments:
+                    if not isinstance(arguments['selections'], list):
+                        raise FunctionCallValidationError(
+                            'The "selections" argument must be an array of selection objects'
+                        )
+                    selections = []
+                    for selection in arguments['selections']:
+                        if not isinstance(selection, dict):
+                            raise FunctionCallValidationError(
+                                'Each stage_hunk selection must be an object'
+                            )
+                        if 'file' not in selection or 'hunk_id' not in selection:
+                            raise FunctionCallValidationError(
+                                'Each stage_hunk selection must include "file" and "hunk_id"'
+                            )
+
+                        include_lines = selection.get('include_lines')
+                        if include_lines is not None and not isinstance(
+                            include_lines, list
+                        ):
+                            raise FunctionCallValidationError(
+                                'If provided, "include_lines" must be an array of integers'
+                            )
+
+                        selections.append(
+                            StageHunkSelection(
+                                file=selection['file'],
+                                hunk_id=selection['hunk_id'],
+                                include_lines=include_lines,
+                            )
+                        )
+
+                reset_index = arguments.get('reset_index', False)
+                if isinstance(reset_index, str):
+                    reset_index = reset_index.lower() == 'true'
+
+                action = StageHunkAction(
+                    reset_index=bool(reset_index), selections=selections
+                )
                 set_security_risk(action, arguments)
             elif tool_call.function.name == create_view_file_tool()['function']['name']:
                 if 'path' not in arguments:

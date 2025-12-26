@@ -2,6 +2,7 @@
 
 EXECUTE_BASH_TOOL_NAME = 'execute_bash'
 APPLY_PATCH_TOOL_NAME = 'apply_patch'
+STAGE_HUNK_TOOL_NAME = 'stage_hunk'
 BROWSER_TOOL_NAME = 'browser'
 FINISH_TOOL_NAME = 'finish'
 LLM_BASED_EDIT_TOOL_NAME = 'edit_file'

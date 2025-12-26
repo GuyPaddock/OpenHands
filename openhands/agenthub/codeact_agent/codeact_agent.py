@@ -23,6 +23,9 @@ from openhands.agenthub.codeact_agent.tools.llm_based_edit import LLMBasedFileEd
 from openhands.agenthub.codeact_agent.tools.apply_patch import (
     create_apply_patch_tool,
 )
+from openhands.agenthub.codeact_agent.tools.stage_hunk import (
+    create_stage_hunk_tool,
+)
 from openhands.agenthub.codeact_agent.tools.task_tracker import (
     create_task_tracker_tool,
 )
@@ -146,8 +149,10 @@ class CodeActAgent(Agent):
             tools.append(create_view_file_tool())
         if self.config.enable_llm_editor:
             tools.append(LLMBasedFileEditTool)
+            tools.append(create_stage_hunk_tool())
         elif self.config.enable_editor:
             tools.append(create_apply_patch_tool())
+            tools.append(create_stage_hunk_tool())
         return tools
 
     def reset(self) -> None:
